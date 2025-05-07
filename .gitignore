@@ -1,0 +1,24 @@
+# Dependencias
+node_modules/
+npm-debug.log
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Archivos de construcción
+/frontend/dist
+/frontend/dist-ssr
+
+# Logs y caches
+logs
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+*.local
+
+# Editor y sistema
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
