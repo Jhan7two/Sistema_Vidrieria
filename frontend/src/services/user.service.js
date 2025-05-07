@@ -1,0 +1,22 @@
+// frontend/src/services/user.service.js
+import api from './api'
+
+class UserService {
+  async getAllUsers() {
+    return api.get('/users')
+  }
+  
+  async getUserById(id) {
+    return api.get(`/users/${id}`)
+  }
+  
+  async createUser(userData) {
+    return api.post('/users', userData)
+  }
+  
+  async updateUser(id, userData) {
+    return api.put(`/users/${id}`, userData)
+  }
+}
+
+export default new UserService()

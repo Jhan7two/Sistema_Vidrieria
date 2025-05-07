@@ -1,5 +1,18 @@
+// frontend/src/main.js
 import { createApp } from 'vue'
-import './style.css'
+import { createPinia } from 'pinia'
 import App from './App.vue'
+import router from './router'
+import './assets/main.css'
 
-createApp(App).mount('#app')
+// Crear la aplicación
+const app = createApp(App)
+
+// Usar Pinia para la gestión de estado
+app.use(createPinia())
+
+// Configurar router
+app.use(router)
+
+// Montar la aplicación
+app.mount('#app')
