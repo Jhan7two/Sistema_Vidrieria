@@ -1,18 +1,18 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Hero Section -->
-    <section class="bg-gradient-to-r from-teal-900 to-teal-800 text-white py-16">
+    <section class="bg-gradient-to-r from-rose-600 to-rose-700 text-white py-16">
       <div class="container mx-auto px-4">
         <div class="max-w-3xl mx-auto text-center">
           <h1 class="text-4xl md:text-5xl font-bold mb-6">Sistema Vidriería Montero</h1>
           <p class="text-xl mb-8">Administre su inventario, clientes y ventas de manera eficiente</p>
           <div class="flex flex-col sm:flex-row justify-center gap-4">
-            <a href="/auth/login" class="bg-white text-blue-700 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition duration-300">
+            <router-link to="/auth/login" class="bg-white text-blue-700 hover:bg-rose-100 font-semibold py-3 px-6 rounded-lg transition duration-300">
               Iniciar Sesión
-            </a>
-            <a href="/dashboard" class="bg-transparent hover:bg-blue-700 border border-white font-semibold py-3 px-6 rounded-lg transition duration-300">
+            </router-link>
+            <router-link to="/controlPanel" class="bg-transparent hover:bg-blue-700 border border-white font-semibold py-3 px-6 rounded-lg transition duration-300">
               Panel de Control
-            </a>
+            </router-link>
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const sequelize = require('./config/database');
 const path = require('path');
+const ventaRoutes = require('./routes/ventaRoutes');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -29,6 +30,7 @@ app.use(morgan('dev'));
 // Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/ventas', ventaRoutes);
 
 // Ruta para verificar si el servidor está funcionando
 app.get('/', (req, res) => {

@@ -24,16 +24,24 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authService.login(credentials)
-        
-        // Guardar token en localStorage y state
         localStorage.setItem('token', response.token)
         this.token = response.token
         this.user = response.user
-        
-        // Redireccionar según el parámetro query o al dashboard por defecto
-        const redirectPath = router.currentRoute.value.query.redirect || '/dashboard'
+        // Solo redireccionar después de que el usuario esté autenticado y su rol esté disponible
+        let redirectPath = ''
+        if (router.currentRoute.value.query.redirect) {
+          redirectPath = router.currentRoute.value.query.redirect
+        } else {
+          // Ahora sí, ya tenemos el usuario y su rol
+          if (this.user && this.user.rol === 'admin') {
+            redirectPath = '/dashboard'
+          } else if (this.user && this.user.rol === 'operador') {
+            redirectPath = '/cajaDiaria'
+          } else {
+            redirectPath = '/controlPanel'
+          }
+        }
         router.push(redirectPath)
-        
         return response
       } catch (error) {
         this.error = error.response?.data?.message || 'Error al iniciar sesión'
@@ -58,7 +66,7 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
         
         // Redireccionar al login
-        router.push('/auth/login')
+        router.push('/')
       }
     },
     
