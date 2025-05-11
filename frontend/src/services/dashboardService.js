@@ -1,12 +1,11 @@
 import apiClient from "./api";
-import { getDashboardStats } from "./ventasService";
-export { getVentasDelMes } from "./ventasService";
+import { getDashboardStats as getVentasDashboardStats } from "./ventasService";
+import { getDashboardStats as getGastosDashboardStats } from "./gastosService";
+import { getVentasDelMes } from "./ventasService";
+import { getGastosDelMes } from "./gastosService";
 
-// Mock temporal para desarrollo frontend sin backend
-// export async function getDashboardStats() {
-//   return {
-//     ventas: 120,
-//     ingresos: 15000,
+// Re-exportamos las funciones importadas
+export { getVentasDelMes, getGastosDelMes };
 //     clientes: 35,
 //     productos: 80
 //   }
@@ -58,6 +57,23 @@ export { getVentasDelMes } from "./ventasService";
 //   ].slice(0, limit)
 // }
 
+// Función para obtener estadísticas combinadas del dashboard
+export async function getDashboardStats() {
+  try {
+    const [ventasStats, gastosStats] = await Promise.all([
+      getVentasDashboardStats(),
+      getGastosDashboardStats()
+    ]);
+    
+    return {
+      ...ventasStats,
+      ...gastosStats
+    };
+  } catch (error) {
+    console.error("Error al obtener estadísticas del dashboard:", error);
+    throw error;
+  }
+}
+
 // AVISO: Descomenta las funciones originales y la importación de apiClient cuando el backend esté disponible.
 // Puedes agregar más funciones según los endpoints del backend
-export { getDashboardStats };
