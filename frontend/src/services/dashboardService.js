@@ -3,9 +3,10 @@ import { getDashboardStats as getVentasDashboardStats } from "./ventasService";
 import { getDashboardStats as getGastosDashboardStats } from "./gastosService";
 import { getVentasDelMes } from "./ventasService";
 import { getGastosDelMes } from "./gastosService";
+import { getTrabajosPorEstado } from "./trabajoService";
 
 // Re-exportamos las funciones importadas
-export { getVentasDelMes, getGastosDelMes };
+export { getVentasDelMes, getGastosDelMes, getTrabajosPorEstado };
 //     clientes: 35,
 //     productos: 80
 //   }
@@ -60,14 +61,16 @@ export { getVentasDelMes, getGastosDelMes };
 // Función para obtener estadísticas combinadas del dashboard
 export async function getDashboardStats() {
   try {
-    const [ventasStats, gastosStats] = await Promise.all([
+    const [ventasStats, gastosStats, trabajosStats] = await Promise.all([
       getVentasDashboardStats(),
-      getGastosDashboardStats()
+      getGastosDashboardStats(),
+      getTrabajosPorEstado()
     ]);
     
     return {
       ...ventasStats,
-      ...gastosStats
+      ...gastosStats,
+      trabajos: trabajosStats
     };
   } catch (error) {
     console.error("Error al obtener estadísticas del dashboard:", error);

@@ -93,10 +93,10 @@
   // Elementos de navegación para el usuario
   const navItems = computed(() => {
     const items = [
-     // { name: 'Caja Diaria', path: '/caja-diaria' },
+      { name: 'Caja Diaria', path: '/operador/caja-diaria' },
      // { name: 'Inventario', path: '/inventario' },
      // { name: 'Cotizaciones', path: '/cotizaciones' },
-     // { name: 'Trabajos', path: '/trabajos' },
+      { name: 'Trabajos', path: '/operador/trabajos' },
      // { name: 'Clientes', path: '/clientes' },
      // { name: 'Reportes', path: '/reportes' }
     ]

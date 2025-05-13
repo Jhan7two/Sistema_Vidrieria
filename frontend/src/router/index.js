@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/auth'
 
 // Layouts
 import AuthLayout from '../layouts/AuthLayout.vue'
+import MainLayout from '../layouts/mainLayout.vue'
 
 // Vistas
 import Login from '../views/auth/Login.vue'
@@ -12,6 +13,7 @@ import ControlPanel from '../views/dashboard/ControlPanel.vue'
 import NotFound from '../views/NotFound.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
+import Trabajos from '../views/operador/trabajos.vue'
 
 // Rutas
 const routes = [
@@ -39,17 +41,29 @@ const routes = [
     meta: { requiresAuth: true} // Añadido requiresAdmin
   },
   {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: Dashboard,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
-  },
-  {
-    path: '/cajaDiaria',
-    name: 'cajaDiaria',
-    component: cajaDiaria,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
-    
+    path: '/',
+    component: MainLayout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: Dashboard,
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'operador/caja-diaria',
+        name: 'cajaDiaria',
+        component: cajaDiaria,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'operador/trabajos',
+        name: 'trabajos',
+        component: Trabajos,
+        meta: { requiresAuth: true }
+      }
+    ]
   },
   {
     path: '/:pathMatch(.*)*',

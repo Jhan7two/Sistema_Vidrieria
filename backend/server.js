@@ -9,6 +9,7 @@ const sequelize = require('./config/database');
 const path = require('path');
 const ventaRoutes = require('./routes/ventaRoutes');
 const gastoRoutes = require('./routes/gastoRoutes');
+const trabajoRoutes = require('./routes/trabajoRoutes');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/gastos', gastoRoutes);
+app.use('/api/trabajos', trabajoRoutes);
 
 // Ruta para verificar si el servidor está funcionando
 app.get('/', (req, res) => {

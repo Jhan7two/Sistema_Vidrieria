@@ -9,22 +9,109 @@ CREATE TABLE clientes (
   INDEX idx_cliente_nombre (nombre) -- Índice para optimizar búsquedas por nombre de cliente
 );
 
--- Tabla de trabajos - Registra los trabajos o servicios realizados por la vidriería
+-- Tabla de trabajos rediseñada - Registra los trabajos o servicios realizados por la vidriería
 CREATE TABLE trabajos (
-  id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada trabajo, se incrementa automáticamente
-  cliente_id INT, -- Referencia al cliente que solicitó el trabajo, puede ser NULL
-  descripcion TEXT NOT NULL, -- Descripción detallada del trabajo a realizar, campo obligatorio
-  estado ENUM('inicio', 'proceso', 'terminado') DEFAULT 'inicio', -- Estado actual del trabajo con tres posibles valores y valor predeterminado 'inicio'
-  costo_total DECIMAL(10,2) NOT NULL, -- Costo total del trabajo con 2 decimales, campo obligatorio
-  fecha_inicio DATE NOT NULL, -- Fecha en que se inicia el trabajo, campo obligatorio
-  fecha_entrega DATE, -- Fecha estimada de entrega, campo opcional
-  observaciones TEXT, -- Notas adicionales sobre el trabajo, campo opcional
+  id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada trabajo
+  cliente_id INT, -- Referencia al cliente que solicitó el trabajo
+  descripcion TEXT NOT NULL, -- Descripción detallada del trabajo a realizar
+  tipo VARCHAR(50) NOT NULL, -- Tipo de trabajo (instalación, corte, pulido, etc.)
+  fecha_programada DATE NOT NULL, -- Fecha en que está programado el trabajo
+  fecha_inicio DATE, -- Fecha en que se comenzó el trabajo
+  fecha_finalizacion DATE, -- Fecha en que se terminó el trabajo
+  fecha_entrega DATE, -- Fecha estimada o real de entrega al cliente
+  estado ENUM('inicio', 'proceso', 'terminado') DEFAULT 'inicio' -- Estado del avance físico del trabajo
+  direccion_trabajo TEXT, -- Dirección donde se realizará el trabajo (puede ser diferente a la del cliente)
+  costo_total DECIMAL(10,2) NOT NULL, -- Precio total del trabajo
+  monto_pagado DECIMAL(10,2) DEFAULT 0.00, -- Cuánto ha pagado el cliente hasta el momento
+  saldo_pendiente DECIMAL(10,2) GENERATED ALWAYS AS (costo_total - monto_pagado) STORED, -- Campo calculado: saldo pendiente de pago
+  estado_pago ENUM('Pendiente', 'Parcial', 'Pagado') DEFAULT 'Pendiente', -- Estado del pago
+  observaciones TEXT, -- Notas adicionales sobre el trabajo
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de creación del registro
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Fecha y hora de última actualización
-  FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL, -- Relación con la tabla clientes, si se elimina el cliente, se mantiene el trabajo pero sin cliente asociado
+  
+  FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL, -- Si se elimina el cliente, se mantiene el trabajo sin cliente asociado
+  
   INDEX idx_trabajo_cliente (cliente_id), -- Índice para optimizar búsquedas por cliente
-  INDEX idx_trabajo_estado (estado) -- Índice para optimizar filtros por estado del trabajo
+  INDEX idx_trabajo_estado_trabajo (estado_trabajo), -- Índice para filtrar por estado del trabajo
+  INDEX idx_trabajo_estado_pago (estado_pago), -- Índice para filtrar por estado de pago
+  INDEX idx_trabajo_fecha_programada (fecha_programada), -- Índice para búsquedas por fecha programada
+  INDEX idx_trabajo_tipo (tipo) -- Índice para búsquedas por tipo de trabajo
 );
+
+-- Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
+DELIMITER $$
+CREATE TRIGGER after_cobro_insert_updated
+AFTER INSERT ON cobros
+FOR EACH ROW
+BEGIN
+  DECLARE total_cobrado DECIMAL(10,2);
+  DECLARE costo_total_trabajo DECIMAL(10,2);
+  
+  -- Calcular el total cobrado hasta ahora para este trabajo (incluyendo el nuevo cobro)
+  SELECT SUM(monto) INTO total_cobrado
+  FROM cobros
+  WHERE trabajo_id = NEW.trabajo_id;
+  
+  -- Obtener el costo total establecido para el trabajo
+  SELECT costo_total INTO costo_total_trabajo
+  FROM trabajos
+  WHERE id = NEW.trabajo_id;
+  
+  -- Actualizar el monto_pagado en la tabla trabajos
+  UPDATE trabajos
+  SET 
+    monto_pagado = total_cobrado,
+    -- Actualizar automáticamente el estado_pago según el monto pagado
+    estado_pago = CASE 
+      WHEN total_cobrado >= costo_total_trabajo THEN 'Pagado'
+      WHEN total_cobrado > 0 THEN 'Parcial'
+      ELSE 'Pendiente'
+    END
+  WHERE id = NEW.trabajo_id;
+  
+  -- Si el estado_trabajo es 'Completado' y ahora está pagado totalmente, cambiar a 'Entregado'
+  IF total_cobrado >= costo_total_trabajo THEN
+    UPDATE trabajos
+    SET estado_trabajo = IF(estado_trabajo = 'Completado', 'Entregado', estado_trabajo)
+    WHERE id = NEW.trabajo_id AND estado_trabajo = 'Completado';
+  END IF;
+END$$
+DELIMITER ;
+
+-- Crear vistas para facilitar el acceso a los datos de trabajos
+CREATE VIEW vista_trabajos AS
+SELECT 
+  t.id,
+  t.descripcion,
+  t.tipo,
+  t.fecha_programada,
+  t.fecha_inicio,
+  t.fecha_finalizacion,
+  t.fecha_entrega,
+  t.estado_trabajo,
+  t.direccion_trabajo,
+  t.costo_total,
+  t.monto_pagado,
+  t.saldo_pendiente,
+  t.estado_pago,
+  t.observaciones,
+  c.nombre AS nombre_cliente,
+  c.telefono AS telefono_cliente,
+  c.direccion AS direccion_cliente,
+  u.nombre_completo AS responsable
+FROM 
+  trabajos t
+LEFT JOIN 
+  clientes c ON t.cliente_id = c.id
+LEFT JOIN 
+  usuarios u ON t.responsable_id = u.id;
+
+-- Crear vista para trabajos pendientes por fecha programada
+CREATE VIEW trabajos_pendientes AS
+SELECT *
+FROM vista_trabajos
+WHERE estado_trabajo IN ('Programado', 'En Progreso', 'En Espera')
+ORDER BY fecha_programada;
 
 -- Tabla de cobros - Registra los pagos recibidos por los trabajos realizados
 CREATE TABLE cobros (
@@ -266,7 +353,7 @@ AFTER INSERT ON ventas -- Se activa después de cada inserción en la tabla vent
 FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
 BEGIN
   -- Variables para almacenar datos necesarios
-  DECLARE forma_pago_usada ENUM('efectivo', 'tarjeta', 'transferencia', 'cheque', 'otro');
+  DECLARE forma_pago_usada ENUM('efectivo','transferencia', 'otro');
   DECLARE usuario_actual INT;
   DECLARE saldo_actual DECIMAL(10,2);
   
