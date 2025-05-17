@@ -1,8 +1,22 @@
 <template>
   <div class="caja-diaria p-6">
     <h2 class="text-2xl font-bold mb-4">Caja Diaria</h2>
+    
+    <!-- Mensaje de error -->
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      <span class="block sm:inline">{{ error }}</span>
+      <button @click="error = null" class="float-right font-bold">×</button>
+    </div>
+    
     <div class="saldo-actual bg-white p-4 rounded shadow mb-4">
       <strong>Saldo actual:</strong> {{ formatCurrency(saldo) }}
+    </div>
+    
+    <!-- Indicador de carga -->
+    <div v-if="cargando" class="text-center py-3 mb-4">
+      <span class="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded">
+        Cargando datos...
+      </span>
     </div>
     
     <!-- Pestañas -->
@@ -18,6 +32,11 @@
             <input v-model="nuevoIngreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
             <input v-model.number="nuevoIngreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
             <input v-model="nuevoIngreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
+            <select v-model="nuevoIngreso.forma_pago" class="border rounded px-3 py-2 w-full mb-2">
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otro">Otro</option>
+            </select>
           </div>
           <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">Registrar Ingreso</button>
         </form>
@@ -110,10 +129,9 @@
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Método de pago</label>
             <select v-model="nuevoCobro.metodo_pago" class="border rounded px-3 py-2 w-full">
-              <option value="Efectivo">Efectivo</option>
-              <option value="Transferencia">Transferencia</option>
-              <option value="Tarjeta">Tarjeta</option>
-              <option value="Otro">Otro</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otro">Otro</option>
             </select>
           </div>
           <div class="mb-4">
@@ -144,12 +162,14 @@
           </thead>
           <tbody>
             <tr v-for="mov in vista === 'movimientos' ? movimientos : cobros" :key="mov.id" class="border-b">
-              <td class="px-4 py-2">{{ mov.hora }}</td>
-              <td :class="[mov.tipo === 'entrada' || mov.tipo === 'cobro' ? 'entrada' : 'salida', 'px-4 py-2']">{{ mov.tipo === 'cobro' ? 'Cobro' : mov.tipo }}</td>
+              <td class="px-4 py-2">{{ formatDate(mov.fecha_hora || mov.fecha) }}</td>
+              <td :class="[mov.tipo_movimiento === 'entrada' || mov.tipo_referencia === 'cobro' ? 'entrada' : 'salida', 'px-4 py-2']">
+                {{ mov.tipo_movimiento || mov.tipo_referencia }}
+              </td>
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.concepto : mov.trabajo_id }}</td>
               <td class="px-4 py-2">{{ formatCurrency(mov.monto) }}</td>
-              <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : mov.metodo_pago }}</td>
-              <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones }}</td>
+              <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : mov.metodo_pago || mov.tipo_pago }}</td>
+              <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
             </tr>
             <tr v-if="(vista === 'movimientos' && movimientos.length === 0) || (vista === 'cobros' && cobros.length === 0)">
               <td :colspan="vista === 'cobros' ? 6 : 5" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
@@ -159,13 +179,16 @@
       </div>
     </div>
     <div class="cierre-dia">
-      <button @click="cerrarDia" :disabled="cerrado">Cerrar Día</button>
+      <button @click="cerrarDia" :disabled="cerrado" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Cerrar Día</button>
       <span v-if="cerrado" class="cerrado-msg">Día cerrado</span>
     </div>
   </div>
 </template>
 
 <script>
+import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo } from '../../services/cajaService';
+import { buscarTrabajosPorCobrar } from '../../services/cajaService';
+import { createCobro } from '../../services/cobroService';
 export default {
   name: 'CajaDiaria',
   data() {
@@ -177,12 +200,14 @@ export default {
       nuevoIngreso: {
         concepto: '',
         monto: null,
-        descripcion: ''
+        descripcion: '',
+        forma_pago: 'efectivo'
       },
       nuevoEgreso: {
         concepto: '',
         monto: null,
-        descripcion: ''
+        descripcion: '',
+        forma_pago: 'efectivo'
       },
       cerrado: false,
       // Datos para la sección de cobros de trabajos
@@ -193,16 +218,11 @@ export default {
       trabajoSeleccionado: null,
       nuevoCobro: {
         monto: null,
-        metodo_pago: 'Efectivo',
+        metodo_pago: 'efectivo',
         observaciones: ''
       },
-      // Datos de ejemplo para trabajos
-      trabajos: [
-        { id: 1, cliente: 'Vidrios S.A.', descripcion: 'Instalación de ventanas', costo_total: 1200, monto_pagado: 400, saldo_pendiente: 800, estado_pago: 'Parcial' },
-        { id: 2, cliente: 'Cristales SRL', descripcion: 'Corte de vidrios', costo_total: 900, monto_pagado: 300, saldo_pendiente: 600, estado_pago: 'Parcial' },
-        { id: 3, cliente: 'Pulidos y Más', descripcion: 'Pulido de superficies', costo_total: 1500, monto_pagado: 1500, saldo_pendiente: 0, estado_pago: 'Pagado' },
-        { id: 4, cliente: 'Alfa Glass', descripcion: 'Instalación de espejos', costo_total: 800, monto_pagado: 200, saldo_pendiente: 600, estado_pago: 'Parcial' }
-      ]
+      cargando: false,
+      error: null
     }
   },
   mounted() {
@@ -210,48 +230,85 @@ export default {
     this.cargarDatos();
   },
   methods: {
-    cargarDatos() {
-      // Aquí se cargarían los datos desde la API
-      // Por ahora usamos datos de ejemplo
-    },
-    registrarMovimiento(tipo) {
-      let movimiento = {};
-      if (tipo === 'entrada') {
-        movimiento = {
-          id: Date.now(),
-          hora: new Date().toLocaleTimeString(),
-          tipo: 'entrada',
-          concepto: this.nuevoIngreso.concepto,
-          monto: this.nuevoIngreso.monto,
-          descripcion: this.nuevoIngreso.descripcion
-        };
-        this.saldo += this.nuevoIngreso.monto;
-        this.nuevoIngreso = { concepto: '', monto: null, descripcion: '' };
-      } else {
-        movimiento = {
-          id: Date.now(),
-          hora: new Date().toLocaleTimeString(),
-          tipo: 'salida',
-          concepto: this.nuevoEgreso.concepto,
-          monto: this.nuevoEgreso.monto,
-          descripcion: this.nuevoEgreso.descripcion
-        };
-        this.saldo -= this.nuevoEgreso.monto;
-        this.nuevoEgreso = { concepto: '', monto: null, descripcion: '' };
+    async cargarDatos() {
+      try {
+        this.cargando = true;
+        // Cargar saldo actual
+        const dataSaldo = await getSaldoActual();
+        this.saldo = dataSaldo.saldo;
+        
+        // Cargar movimientos diarios
+        const dataMovimientos = await getMovimientosDiarios();
+        this.movimientos = dataMovimientos.movimientos || [];
+        
+        // Cargar cobros diarios
+        const dataCobros = await getCobrosDiarios();
+        this.cobros = dataCobros.cobros || [];
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+        this.error = "Error al cargar datos. Intente nuevamente.";
+      } finally {
+        this.cargando = false;
       }
-      this.movimientos.push(movimiento);
-      
-      // En una implementación real, aquí se enviaría el movimiento a la API
     },
-    cerrarDia() {
-      this.cerrado = true;
-      // En una implementación real, aquí se enviaría la solicitud de cierre a la API
+    async registrarMovimiento(tipo) {
+      try {
+        this.cargando = true;
+        const movimiento = tipo === 'entrada' ? this.nuevoIngreso : this.nuevoEgreso;
+        
+        // Preparar datos para enviar al backend
+        const datos = {
+          tipo_movimiento: tipo,
+          concepto: movimiento.concepto,
+          monto: movimiento.monto,
+          descripcion: movimiento.descripcion,
+          forma_pago: movimiento.forma_pago
+        };
+        
+        // Llamar al servicio
+        const response = await registrarMovimiento(datos);
+        
+        // Actualizar la vista
+        if (response && response.movimiento) {
+          this.movimientos.unshift(response.movimiento);
+          this.saldo = response.saldo;
+        }
+        
+        // Limpiar formulario
+        if (tipo === 'entrada') {
+          this.nuevoIngreso = { concepto: '', monto: null, descripcion: '', forma_pago: 'efectivo' };
+        } else {
+          this.nuevoEgreso = { concepto: '', monto: null, descripcion: '', forma_pago: 'efectivo' };
+        }
+      } catch (error) {
+        console.error("Error al registrar movimiento:", error);
+        this.error = error.response?.data?.message || "Error al registrar movimiento.";
+      } finally {
+        this.cargando = false;
+      }
+    },
+    async cerrarDia() {
+      try {
+        this.cargando = true;
+        await cerrarCaja();
+        this.cerrado = true;
+      } catch (error) {
+        console.error("Error al cerrar día:", error);
+        this.error = "Error al cerrar día. Intente nuevamente.";
+      } finally {
+        this.cargando = false;
+      }
     },
     formatCurrency(value) {
       if (typeof value !== 'number') {
         return value || '-';
       }
       return '$' + value.toFixed(2);
+    },
+    formatDate(date) {
+      if (!date) return '-';
+      const d = new Date(date);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     },
     // Métodos para la sección de cobros de trabajos
     buscarTrabajos() {
@@ -262,21 +319,72 @@ export default {
         this.busquedaRealizada = false;
       }
     },
-    filtrarTrabajos() {
-      const busqueda = this.busquedaTrabajo.toLowerCase();
-      this.trabajosFiltrados = this.trabajos.filter(t => {
-        return t.cliente.toLowerCase().includes(busqueda) || 
-               t.id.toString().includes(busqueda);
-      });
-      this.busquedaRealizada = true;
-      
-      // En una implementación real, aquí se haría una solicitud a la API
+    async filtrarTrabajos() {
+      try {
+        this.cargando = true;
+        this.busquedaRealizada = true;
+        this.error = null; // Limpiar error anterior
+        
+        // Validación del término de búsqueda
+        const terminoLimpio = this.busquedaTrabajo.trim();
+        
+        const response = await buscarTrabajosPorCobrar(terminoLimpio);
+        
+        // Si hay un error en la respuesta del servicio
+        if (response.error) {
+          this.error = response.mensaje || "Error al buscar trabajos";
+          this.trabajosFiltrados = [];
+          return;
+        }
+        
+        let trabajos = response.trabajos || [];
+        
+        // Si el término parece ser un nombre de cliente, filtrar por cliente en el frontend
+        if (terminoLimpio && isNaN(terminoLimpio)) {
+          // Obtener todos los trabajos y filtrar por cliente
+          const allResponse = await buscarTrabajosPorCobrar("");
+          let todosTrabajos = allResponse.trabajos || [];
+          
+          // Filtrar por descripción o ID de cliente
+          const terminoLower = terminoLimpio.toLowerCase();
+          const trabajosCliente = todosTrabajos.filter(trabajo => {
+            const descripcion = trabajo.descripcion?.toLowerCase() || '';
+            const cliente = trabajo.cliente?.toLowerCase() || '';
+            return descripcion.includes(terminoLower) || cliente.includes(terminoLower);
+          });
+          
+          // Combinar resultados sin duplicados
+          if (trabajosCliente.length > 0) {
+            const idsExistentes = new Set(trabajos.map(t => t.id));
+            for (const t of trabajosCliente) {
+              if (!idsExistentes.has(t.id)) {
+                trabajos.push(t);
+              }
+            }
+          }
+        }
+        
+        this.trabajosFiltrados = trabajos;
+        
+        // Mostrar mensaje si no hay resultados
+        if (this.trabajosFiltrados.length === 0) {
+          this.error = terminoLimpio 
+            ? `No se encontraron trabajos con "${terminoLimpio}"`
+            : "No hay trabajos pendientes de cobro";
+        }
+      } catch (error) {
+        console.error("Error inesperado al filtrar trabajos:", error);
+        this.error = "Error al buscar trabajos. Intente nuevamente.";
+        this.trabajosFiltrados = [];
+      } finally {
+        this.cargando = false;
+      }
     },
     seleccionarTrabajo(trabajo) {
       this.trabajoSeleccionado = trabajo;
       this.nuevoCobro = {
         monto: trabajo.saldo_pendiente,
-        metodo_pago: 'Efectivo',
+        metodo_pago: 'efectivo',
         observaciones: ''
       };
     },
@@ -284,57 +392,45 @@ export default {
       this.trabajoSeleccionado = null;
       this.nuevoCobro = {
         monto: null,
-        metodo_pago: 'Efectivo',
+        metodo_pago: 'efectivo',
         observaciones: ''
       };
     },
-    registrarCobroTrabajo() {
-      // Validar que el monto no exceda el saldo pendiente
-      if (this.nuevoCobro.monto > this.trabajoSeleccionado.saldo_pendiente) {
-        alert('El monto no puede exceder el saldo pendiente');
-        return;
-      }
-      
-      // Crear el registro de cobro
-      const cobro = {
-        id: Date.now(),
-        hora: new Date().toLocaleTimeString(),
-        tipo: 'cobro',
-        trabajo_id: this.trabajoSeleccionado.id,
-        monto: this.nuevoCobro.monto,
-        metodo_pago: this.nuevoCobro.metodo_pago,
-        observaciones: this.nuevoCobro.observaciones
-      };
-      
-      // Actualizar el saldo de caja
-      this.saldo += this.nuevoCobro.monto;
-      
-      // Actualizar el trabajo
-      const trabajo = this.trabajos.find(t => t.id === this.trabajoSeleccionado.id);
-      if (trabajo) {
-        trabajo.monto_pagado += this.nuevoCobro.monto;
-        trabajo.saldo_pendiente -= this.nuevoCobro.monto;
+    async registrarCobroTrabajo() {
+      try {
+        this.cargando = true;
         
-        // Actualizar el estado de pago
-        if (trabajo.saldo_pendiente <= 0) {
-          trabajo.estado_pago = 'Pagado';
-        } else if (trabajo.monto_pagado > 0) {
-          trabajo.estado_pago = 'Parcial';
+        // Validar que el monto no exceda el saldo pendiente
+        if (this.nuevoCobro.monto > this.trabajoSeleccionado.saldo_pendiente) {
+          this.error = 'El monto no puede exceder el saldo pendiente';
+          return;
         }
+        
+        // Preparar datos para enviar al backend
+        const datos = {
+          trabajo_id: this.trabajoSeleccionado.id,
+          monto: this.nuevoCobro.monto,
+          metodo_pago: this.nuevoCobro.metodo_pago,
+          observaciones: this.nuevoCobro.observaciones
+        };
+        
+        // Llamar al servicio
+        const response = await createCobro(datos);
+        
+        // Actualizar la vista
+        if (response) {
+          // Recargar datos
+          await this.cargarDatos();
+          
+          // Cerrar el formulario
+          this.cancelarSeleccionTrabajo();
+        }
+      } catch (error) {
+        console.error("Error al registrar cobro:", error);
+        this.error = error.response?.data?.message || "Error al registrar cobro.";
+      } finally {
+        this.cargando = false;
       }
-      
-      // Agregar el cobro a la lista
-      this.cobros.push(cobro);
-      
-      // Limpiar el formulario
-      this.trabajoSeleccionado = null;
-      this.nuevoCobro = {
-        monto: null,
-        metodo_pago: 'Efectivo',
-        observaciones: ''
-      };
-      
-      // En una implementación real, aquí se enviaría el cobro a la API
     },
     estadoPagoClase(estadoPago) {
       switch (estadoPago) {

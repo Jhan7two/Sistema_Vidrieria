@@ -371,12 +371,15 @@ exports.deleteCobro = async (req, res) => {
 // Obtener cobros del día actual
 exports.getCobrosDiarios = async (req, res) => {
   try {
-    // Enfoque simple sin asociaciones para evitar errores
+    console.log('=== INICIO CONSULTA COBROS DIARIOS ===');
+    // Definir el rango de fechas para el día actual
     const hoy = new Date();
     const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
     
-    // Usar Sequelize sin asociaciones
+    console.log('Consultando cobros desde:', fechaInicio, 'hasta:', fechaFin);
+    
+    // Buscar los cobros del día
     const cobros = await Cobro.findAll({
       where: {
         fecha: {
@@ -384,22 +387,20 @@ exports.getCobrosDiarios = async (req, res) => {
           [Op.lt]: fechaFin
         }
       },
-      order: [['createdAt', 'DESC']],
-      raw: true // Obtener objetos planos en lugar de instancias de modelo
+      order: [['fecha', 'DESC']]
     });
     
-    // Calcular el total cobrado del día
-    let totalCobrado = 0;
-    if (cobros && cobros.length > 0) {
-      totalCobrado = cobros.reduce((total, cobro) => {
-        const monto = parseFloat(cobro.monto || 0);
-        return isNaN(monto) ? total : total + monto;
-      }, 0);
-    }
+    console.log('Cobros encontrados:', cobros.length);
     
-    // Enviar respuesta
-    return res.json({
-      cobros: cobros || [],
+    // Calcular el total cobrado
+    const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
+    console.log('Total cobrado:', totalCobrado);
+    
+    console.log('=== FIN CONSULTA COBROS DIARIOS ===');
+    
+    // Devolver los resultados
+    res.json({
+      cobros,
       totalCobrado,
       fecha: fechaInicio
     });

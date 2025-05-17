@@ -10,7 +10,8 @@ router.use(protect);
 // Rutas para obtener información específica (deben ir ANTES de las rutas con parámetros)
 router.get('/estado', authorize('admin', 'vendedor', 'operario'), trabajoController.getTrabajosPorEstado);
 router.get('/estado/contador', authorize('admin', 'vendedor', 'operario'), trabajoController.getTrabajosPorEstado);
-router.get('/listado/recientes', authorize('admin', 'vendedor', 'operario'), trabajoController.getTrabajosRecientes);
+router.get('/recientes', authorize('admin', 'vendedor', 'operario'), trabajoController.getTrabajosRecientes);
+router.get('/buscar', authorize('admin', 'vendedor'), trabajoController.buscarTrabajosPorCobrar);
 
 // Rutas para trabajos
 router.get('/', authorize('admin', 'vendedor', 'operario'), trabajoController.getAllTrabajos);

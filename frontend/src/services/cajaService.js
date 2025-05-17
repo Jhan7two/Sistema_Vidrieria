@@ -77,8 +77,17 @@ export async function cerrarCaja(cierre) {
  * @returns {Promise} Promise con los cobros del día
  */
 export async function getCobrosDiarios() {
-  const data = await apiClient.get("/cobros/diarios");
-  return data;
+  try {
+    console.log("Llamando a endpoint /cobros/diarios");
+    const response = await apiClient.get("/cobros/diarios");
+    console.log("Respuesta directa del endpoint de cobros diarios:", response);
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en getCobrosDiarios:", error);
+    // Devolvemos un valor predeterminado en caso de error
+    return { cobros: [], totalCobrado: 0 };
+  }
 }
 
 /**
@@ -87,8 +96,49 @@ export async function getCobrosDiarios() {
  * @returns {Promise} Promise con los trabajos encontrados
  */
 export async function buscarTrabajosPorCobrar(termino) {
-  const data = await apiClient.get(`/trabajos/buscar?termino=${termino}`);
-  return data;
+  try {
+    console.log("Buscando trabajos con término:", termino);
+    
+    // Codificar el término de búsqueda para manejar caracteres especiales
+    const terminoEncoded = encodeURIComponent(termino);
+    
+    const response = await apiClient.get(`/trabajos/buscar?termino=${terminoEncoded}`);
+    console.log("Respuesta de búsqueda de trabajos:", response);
+    
+    // Verifica si los datos tienen el formato esperado
+    if (!response || typeof response !== 'object') {
+      console.error("Respuesta inválida del servidor:", response);
+      return { trabajos: [], mensaje: "Formato de respuesta inválido" };
+    }
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en buscarTrabajosPorCobrar:", error);
+    
+    // Personalizar mensaje de error según el tipo
+    let mensaje = "Error al buscar trabajos";
+    
+    if (error.response) {
+      // Error del servidor
+      console.error("Error del servidor:", error.response.status, error.response.data);
+      mensaje = error.response.data?.message || `Error ${error.response.status} del servidor`;
+    } else if (error.request) {
+      // Error de red
+      console.error("Error de red - no se recibió respuesta");
+      mensaje = "No se pudo conectar con el servidor";
+    } else {
+      // Otro tipo de error
+      console.error("Error al procesar la solicitud:", error.message);
+      mensaje = error.message || "Error desconocido";
+    }
+    
+    // Devolver un objeto con el formato esperado y un mensaje de error
+    return { 
+      trabajos: [],
+      error: true,
+      mensaje
+    };
+  }
 }
 
 /**

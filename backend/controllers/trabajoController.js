@@ -1,5 +1,7 @@
 const Trabajo = require('../models/trabajo');
 const { Op } = require('sequelize');
+const Cliente = require('../models/cliente');
+const sequelize = require('../config/database');
 
 // Obtener todos los trabajos
 exports.getAllTrabajos = async (req, res) => {
@@ -105,6 +107,85 @@ exports.getTrabajosRecientes = async (req, res) => {
     res.status(500).json({ 
       message: 'Error al obtener trabajos recientes', 
       error: error.message 
+    });
+  }
+};
+
+// Buscar trabajos por cobrar filtrados por cliente o ID
+exports.buscarTrabajosPorCobrar = async (req, res) => {
+  try {
+    console.log('=== INICIO BÚSQUEDA TRABAJOS POR COBRAR ===');
+    const { termino } = req.query;
+    console.log('Término de búsqueda:', termino);
+    
+    let trabajos = [];
+    
+    // Si no hay término, traer todos los trabajos con saldo pendiente
+    if (!termino) {
+      trabajos = await Trabajo.findAll({
+        where: {
+          estado_pago: { [Op.ne]: 'Pagado' }
+        },
+        order: [['updated_at', 'DESC']],
+        limit: 20
+      });
+    } else {
+      // Buscar por ID si el término es numérico
+      if (!isNaN(termino)) {
+        const trabajoPorId = await Trabajo.findByPk(termino);
+        if (trabajoPorId && trabajoPorId.estado_pago !== 'Pagado') {
+          trabajos = [trabajoPorId];
+        }
+      }
+      
+      // Si no se encontró por ID o si el término no es numérico
+      if (trabajos.length === 0) {
+        // Buscar solo en la descripción para simplificar
+        trabajos = await Trabajo.findAll({
+          where: {
+            descripcion: { [Op.like]: `%${termino}%` },
+            estado_pago: { [Op.ne]: 'Pagado' }
+          },
+          order: [['updated_at', 'DESC']],
+          limit: 20
+        });
+      }
+    }
+    
+    console.log('Trabajos encontrados:', trabajos.length);
+    
+    // Filtrar trabajos por saldo pendiente (hacerlo en memoria)
+    trabajos = trabajos.filter(trabajo => {
+      const costoTotal = parseFloat(trabajo.costo_total);
+      const montoPagado = parseFloat(trabajo.monto_pagado);
+      return costoTotal > montoPagado;
+    });
+    
+    console.log('Trabajos con saldo pendiente:', trabajos.length);
+    console.log('=== FIN BÚSQUEDA TRABAJOS POR COBRAR ===');
+    
+    // Simplificar la respuesta para evitar problemas con la búsqueda de clientes
+    const trabajosFormateados = trabajos.map(trabajo => {
+      // Calcular el saldo pendiente
+      const saldoPendiente = parseFloat(trabajo.costo_total) - parseFloat(trabajo.monto_pagado);
+      
+      return {
+        id: trabajo.id,
+        cliente: 'Cliente ID: ' + (trabajo.cliente_id || 'No asignado'),
+        descripcion: trabajo.descripcion,
+        costo_total: parseFloat(trabajo.costo_total),
+        monto_pagado: parseFloat(trabajo.monto_pagado),
+        saldo_pendiente: saldoPendiente,
+        estado_pago: trabajo.estado_pago
+      };
+    });
+    
+    res.json({ trabajos: trabajosFormateados });
+  } catch (error) {
+    console.error('Error al buscar trabajos por cobrar:', error.message, error.stack);
+    res.status(500).json({ 
+      message: 'Error al buscar trabajos: ' + error.message,
+      error: true 
     });
   }
 };
