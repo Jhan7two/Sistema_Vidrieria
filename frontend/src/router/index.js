@@ -38,7 +38,7 @@ const routes = [
     path: '/controlPanel',
     name: 'controlPanel',
     component: ControlPanel,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
+    meta: { requiresAuth: true } // No requiere ser admin
   },
   {
     path: '/',
@@ -84,36 +84,45 @@ const router = createRouter({
 // Protección de rutas
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const isLoggedIn = authStore.isAuthenticated
-  const isAdmin = authStore.isAdmin // Obtener el estado de administrador
-
-  // Rutas que requieren rol de admin
-  if (to.meta.requiresAdmin) {
-    if (!isLoggedIn) { // Primero, el usuario debe estar autenticado
-      next({ name: 'login', query: { redirect: to.fullPath } })
-      return
-    }
-    if (!isAdmin) { // Si está autenticado pero no es admin
-      next({ name: 'home' }) // Redirigir a la página de inicio
-      return
-    }
-  }
   
-  // Rutas que requieren autenticación (pero no necesariamente rol de admin)
-  // Este bloque se ejecutará para rutas con `requiresAuth: true` y (`requiresAdmin: false` o `requiresAdmin` no definido)
-  if (to.meta.requiresAuth && !to.meta.requiresAdmin && !isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-    return
+  // Obtener estado de autenticación
+  const isLoggedIn = authStore.isAuthenticated
+  const isAdmin = authStore.isAdmin
+  
+  // Ruta de login
+  const loginRoute = { name: 'login', query: to.path !== '/' ? { redirect: to.fullPath } : {} }
+  
+  // Rutas que requieren estar autenticado
+  if (to.meta.requiresAuth) {
+    // Si el usuario no está autenticado
+    if (!isLoggedIn) {
+      console.log('Acceso denegado: requiere autenticación')
+      next(loginRoute)
+      return
+    }
+    
+    // Si además requiere ser admin
+    if (to.meta.requiresAdmin && !isAdmin) {
+      console.log('Acceso denegado: requiere privilegios de administrador')
+      next({ name: 'controlPanel' })
+      return
+    }
   }
   
   // Rutas que requieren NO estar autenticado (como login)
   if (to.meta.requiresGuest && isLoggedIn) {
-    // Si el usuario está autenticado, redirigir desde páginas como login.
-    // 'controlPanel' es un buen destino; si no es admin, será redirigido a 'home' por el guardia de 'requiresAdmin'.
-    next({ name: 'controlPanel' }) 
+    console.log('Redireccionando: usuario ya autenticado')
+    
+    // Si el usuario está autenticado, redirigir según su rol
+    if (isAdmin) {
+      next({ name: 'dashboard' })
+    } else {
+      next({ name: 'controlPanel' })
+    }
     return
   }
   
+  // En cualquier otro caso, permitir la navegación
   next()
 })
 

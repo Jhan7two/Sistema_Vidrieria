@@ -5,10 +5,11 @@ import router from '../router'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: null,
+    user: JSON.parse(localStorage.getItem('user')) || null,
     token: localStorage.getItem('token') || null,
     loading: false,
-    error: null
+    error: null,
+    sessionChecked: false
   }),
   
   getters: {
@@ -24,9 +25,16 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authService.login(credentials)
+        
+        // Guardar datos de sesión en localStorage
         localStorage.setItem('token', response.token)
+        localStorage.setItem('user', JSON.stringify(response.user))
+        
+        // Actualizar estado
         this.token = response.token
         this.user = response.user
+        this.sessionChecked = true
+        
         // Solo redireccionar después de que el usuario esté autenticado y su rol esté disponible
         let redirectPath = ''
         if (router.currentRoute.value.query.redirect) {
@@ -61,31 +69,60 @@ export const useAuthStore = defineStore('auth', {
       } finally {
         // Limpiar datos de sesión
         localStorage.removeItem('token')
+        localStorage.removeItem('user')
         this.token = null
         this.user = null
         this.loading = false
+        this.sessionChecked = true
         
         // Redireccionar al login
-        router.push('/')
+        router.push('/auth/login')
       }
     },
     
     async fetchCurrentUser() {
-      if (!this.token) return null
+      if (!this.token) {
+        this.sessionChecked = true
+        return null
+      }
       
       this.loading = true
       
       try {
-        const userData = await authService.getCurrentUser()
-        this.user = userData
-        return userData
+        const response = await authService.getCurrentUser()
+        
+        // Actualizar datos de usuario y guardar en localStorage
+        this.user = response.data
+        localStorage.setItem('user', JSON.stringify(response.data))
+        
+        // Si el token fue renovado en el backend, actualizarlo también
+        if (response.token) {
+          this.token = response.token
+          localStorage.setItem('token', response.token)
+        }
+        
+        this.sessionChecked = true
+        return response.data
       } catch (error) {
         console.error('Error al obtener usuario actual:', error)
+        
         // Si hay error de autenticación, hacer logout
         if (error.response?.status === 401) {
-          this.logout()
+          // Limpiar datos de sesión sin llamar a logout() para evitar otra petición
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          this.token = null
+          this.user = null
+          this.sessionChecked = true
+          
+          // Solo redirigir si no estamos ya en la página de login
+          if (router.currentRoute.value.path !== '/auth/login') {
+            router.push('/auth/login')
+          }
         }
+        
         this.error = 'Error al cargar información del usuario'
+        this.sessionChecked = true
         return null
       } finally {
         this.loading = false

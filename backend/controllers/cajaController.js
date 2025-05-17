@@ -226,6 +226,59 @@ exports.registrarMovimiento = async (req, res) => {
         const movimiento = await Caja.create(datosMovimiento, { transaction });
         console.log('Movimiento creado con ID:', movimiento.id);
         
+        // Consultar si el trigger creó una venta o gasto correspondiente
+        let tipoReferencia, referenciaId;
+        
+        if (tipo_movimiento === 'entrada') {
+          // Buscar la venta más reciente que coincida con el monto y fecha
+          const venta = await sequelize.query(
+            'SELECT id FROM ventas WHERE monto = ? AND fecha = DATE(?) ORDER BY id DESC LIMIT 1',
+            {
+              replacements: [montoNumerico, datosMovimiento.fecha_hora],
+              type: sequelize.QueryTypes.SELECT,
+              transaction
+            }
+          );
+          
+          if (venta && venta.length > 0) {
+            tipoReferencia = 'venta';
+            referenciaId = venta[0].id;
+            console.log(`Encontrada venta relacionada con ID: ${referenciaId}`);
+          }
+        } else {
+          // Buscar el gasto más reciente que coincida con el monto y fecha
+          const gasto = await sequelize.query(
+            'SELECT id FROM gastos WHERE monto = ? AND fecha = DATE(?) ORDER BY id DESC LIMIT 1',
+            {
+              replacements: [montoNumerico, datosMovimiento.fecha_hora],
+              type: sequelize.QueryTypes.SELECT,
+              transaction
+            }
+          );
+          
+          if (gasto && gasto.length > 0) {
+            tipoReferencia = 'gasto';
+            referenciaId = gasto[0].id;
+            console.log(`Encontrado gasto relacionado con ID: ${referenciaId}`);
+          }
+        }
+        
+        // Si se encontró una referencia, actualizar el movimiento de caja
+        if (referenciaId) {
+          await sequelize.query(
+            'UPDATE caja SET referencia_id = ?, tipo_referencia = ? WHERE id = ?',
+            {
+              replacements: [referenciaId, tipoReferencia, movimiento.id],
+              transaction
+            }
+          );
+          console.log(`Movimiento de caja actualizado con referencia: ${tipoReferencia} ID: ${referenciaId}`);
+          
+          // Actualizar el objeto de movimiento para la respuesta
+          movimiento.referencia_id = referenciaId;
+          movimiento.tipo_referencia = tipoReferencia;
+        }
+        
         await transaction.commit();
         console.log('Transacción completada exitosamente');
         console.log('=== FIN REGISTRO MOVIMIENTO CAJA ===');

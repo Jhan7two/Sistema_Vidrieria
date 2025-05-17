@@ -18,16 +18,17 @@ exports.protect = async (req, res, next) => {
       token = req.cookies.token;
     }
 
-    if (!token) {
+    if (!token || token === 'none') {
       return res.status(401).json({
         success: false,
-        message: 'No autorizado, debe iniciar sesión'
+        message: 'No autorizado, debe iniciar sesión',
+        isAuthError: true
       });
     }
 
     try {
       // Verificar token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sistema_vidrieria_secret_key');
 
       // Buscar el usuario
       const user = await User.findByPk(decoded.id);
@@ -35,21 +36,65 @@ exports.protect = async (req, res, next) => {
       if (!user || !user.activo) {
         return res.status(401).json({
           success: false,
-          message: 'Usuario no encontrado o inactivo'
+          message: 'Usuario no encontrado o inactivo',
+          isAuthError: true
         });
       }
 
       // Actualizar último acceso
       await user.update({ ultimo_acceso: new Date() });
 
+      // Verificar si el nombre de usuario coincide con el token
+      if (user.nombre_usuario !== decoded.username) {
+        console.error('El nombre de usuario en el token no coincide con el usuario encontrado');
+        return res.status(401).json({
+          success: false,
+          message: 'Token inválido',
+          isAuthError: true
+        });
+      }
+
       // Agregar usuario a la solicitud
       req.user = user;
+      // Agregar información decodificada del token para referencia
+      req.decoded = decoded;
+      
+      // Calcular tiempo restante del token
+      const currentTime = Math.floor(Date.now() / 1000);
+      const tokenExp = decoded.exp;
+      const timeRemaining = tokenExp - currentTime;
+      
+      // Solo renovar el token si está a menos de 4 horas de expirar
+      // Esto reduce la sobrecarga de generar tokens constantemente
+      if (timeRemaining < 14400) { // 4 horas en segundos
+        console.log('Renovando token para', user.nombre_usuario);
+        
+        // Renovar token para mantener la sesión activa
+        const newToken = jwt.sign(
+          { id: user.id, username: user.nombre_usuario, role: user.rol },
+          process.env.JWT_SECRET || 'sistema_vidrieria_secret_key',
+          { expiresIn: process.env.JWT_EXPIRE || '2d' }
+        );
+        
+        // Configurar cookie con el nuevo token
+        res.cookie('token', newToken, {
+          expires: new Date(
+            Date.now() + (process.env.JWT_COOKIE_EXPIRE || 30) * 24 * 60 * 60 * 1000
+          ),
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/'
+        });
+      }
+      
       next();
     } catch (error) {
       console.error('Error validando token:', error.message);
       return res.status(401).json({
         success: false,
-        message: 'Token inválido o expirado'
+        message: 'Token inválido o expirado',
+        isAuthError: true
       });
     }
   } catch (error) {
@@ -67,7 +112,8 @@ exports.authorize = (...roles) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: 'No autorizado, debe iniciar sesión'
+        message: 'No autorizado, debe iniciar sesión',
+        isAuthError: true
       });
     }
 

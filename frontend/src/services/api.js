@@ -26,10 +26,12 @@ apiClient.interceptors.response.use(
     const message = error.response?.data?.message || 'Error en la solicitud'
     
     // Si es error de autenticación (401), limpiar storage
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && error.response?.data?.isAuthError) {
       if (window.location.pathname !== '/auth/login') {
+        console.log('Error de autenticación detectado, redirigiendo a login')
         localStorage.removeItem('token')
-        window.location.href = '/auth/login'
+        // No redirigimos aquí directamente para evitar problemas con el router
+        // El store se encargará de redirigir en su método fetchCurrentUser
       }
     }
     

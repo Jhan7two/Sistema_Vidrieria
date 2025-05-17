@@ -3,7 +3,6 @@ CREATE TABLE clientes (
   id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada cliente, se incrementa automáticamente
   nombre VARCHAR(100) NOT NULL, -- Nombre del cliente, campo obligatorio, máximo 100 caracteres
   telefono VARCHAR(20), -- Número de teléfono del cliente, opcional, máximo 20 caracteres
-  direccion TEXT, -- Dirección física del cliente, campo de texto sin límite fijo
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de creación del registro, se establece automáticamente
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Fecha y hora de última actualización, se actualiza automáticamente
   INDEX idx_cliente_nombre (nombre) -- Índice para optimizar búsquedas por nombre de cliente
@@ -19,7 +18,7 @@ CREATE TABLE trabajos (
   fecha_inicio DATE, -- Fecha en que se comenzó el trabajo
   fecha_finalizacion DATE, -- Fecha en que se terminó el trabajo
   fecha_entrega DATE, -- Fecha estimada o real de entrega al cliente
-  estado ENUM('inicio', 'proceso', 'terminado') DEFAULT 'inicio' -- Estado del avance físico del trabajo
+  estado ENUM('inicio', 'proceso', 'terminado') DEFAULT 'inicio', -- Estado del avance físico del trabajo
   direccion_trabajo TEXT, -- Dirección donde se realizará el trabajo (puede ser diferente a la del cliente)
   costo_total DECIMAL(10,2) NOT NULL, -- Precio total del trabajo
   monto_pagado DECIMAL(10,2) DEFAULT 0.00, -- Cuánto ha pagado el cliente hasta el momento
@@ -32,86 +31,11 @@ CREATE TABLE trabajos (
   FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL, -- Si se elimina el cliente, se mantiene el trabajo sin cliente asociado
   
   INDEX idx_trabajo_cliente (cliente_id), -- Índice para optimizar búsquedas por cliente
-  INDEX idx_trabajo_estado_trabajo (estado_trabajo), -- Índice para filtrar por estado del trabajo
+  INDEX idx_trabajo_estado (estado), -- Índice para filtrar por estado del trabajo
   INDEX idx_trabajo_estado_pago (estado_pago), -- Índice para filtrar por estado de pago
   INDEX idx_trabajo_fecha_programada (fecha_programada), -- Índice para búsquedas por fecha programada
   INDEX idx_trabajo_tipo (tipo) -- Índice para búsquedas por tipo de trabajo
 );
-
--- Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
-DELIMITER $$
-CREATE TRIGGER after_cobro_insert_updated
-AFTER INSERT ON cobros
-FOR EACH ROW
-BEGIN
-  DECLARE total_cobrado DECIMAL(10,2);
-  DECLARE costo_total_trabajo DECIMAL(10,2);
-  
-  -- Calcular el total cobrado hasta ahora para este trabajo (incluyendo el nuevo cobro)
-  SELECT SUM(monto) INTO total_cobrado
-  FROM cobros
-  WHERE trabajo_id = NEW.trabajo_id;
-  
-  -- Obtener el costo total establecido para el trabajo
-  SELECT costo_total INTO costo_total_trabajo
-  FROM trabajos
-  WHERE id = NEW.trabajo_id;
-  
-  -- Actualizar el monto_pagado en la tabla trabajos
-  UPDATE trabajos
-  SET 
-    monto_pagado = total_cobrado,
-    -- Actualizar automáticamente el estado_pago según el monto pagado
-    estado_pago = CASE 
-      WHEN total_cobrado >= costo_total_trabajo THEN 'Pagado'
-      WHEN total_cobrado > 0 THEN 'Parcial'
-      ELSE 'Pendiente'
-    END
-  WHERE id = NEW.trabajo_id;
-  
-  -- Si el estado_trabajo es 'Completado' y ahora está pagado totalmente, cambiar a 'Entregado'
-  IF total_cobrado >= costo_total_trabajo THEN
-    UPDATE trabajos
-    SET estado_trabajo = IF(estado_trabajo = 'Completado', 'Entregado', estado_trabajo)
-    WHERE id = NEW.trabajo_id AND estado_trabajo = 'Completado';
-  END IF;
-END$$
-DELIMITER ;
-
--- Crear vistas para facilitar el acceso a los datos de trabajos
-CREATE VIEW vista_trabajos AS
-SELECT 
-  t.id,
-  t.descripcion,
-  t.tipo,
-  t.fecha_programada,
-  t.fecha_inicio,
-  t.fecha_finalizacion,
-  t.fecha_entrega,
-  t.estado_trabajo,
-  t.direccion_trabajo,
-  t.costo_total,
-  t.monto_pagado,
-  t.saldo_pendiente,
-  t.estado_pago,
-  t.observaciones,
-  c.nombre AS nombre_cliente,
-  c.telefono AS telefono_cliente,
-  c.direccion AS direccion_cliente,
-  u.nombre_completo AS responsable
-FROM 
-  trabajos t
-LEFT JOIN 
-  clientes c ON t.cliente_id = c.id
-LEFT JOIN 
-  usuarios u ON t.responsable_id = u.id;
-
--- Crear vista para trabajos pendientes por fecha programada
-CREATE VIEW trabajos_pendientes AS
-SELECT *
-FROM vista_trabajos
-WHERE estado_trabajo IN ('Programado', 'En Progreso', 'En Espera')
-ORDER BY fecha_programada;
 
 -- Tabla de cobros - Registra los pagos recibidos por los trabajos realizados
 CREATE TABLE cobros (
@@ -161,7 +85,7 @@ CREATE TABLE gastos (
 );
 
 -- Tabla de inventario - Registra los productos y materiales disponibles en el negocio
-CREATE TABLE inventario (
+CREATE TABLE stock (
   id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada producto, se incrementa automáticamente
   nombre_producto VARCHAR(100) NOT NULL, -- Nombre del producto, campo obligatorio, máximo 100 caracteres
   cantidad INT NOT NULL DEFAULT 0, -- Cantidad disponible del producto, campo obligatorio, valor predeterminado 0
@@ -238,7 +162,7 @@ CREATE TABLE movimientos_inventario (
   referencia_trabajo_id INT NULL, -- Referencia al trabajo relacionado con el movimiento, si aplica
   referencia_venta_id INT NULL, -- Referencia a la venta relacionada con el movimiento, si aplica
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de creación del registro
-  FOREIGN KEY (inventario_id) REFERENCES inventario(id) ON DELETE CASCADE, -- Si se elimina el producto, se eliminan todos sus movimientos
+  FOREIGN KEY (inventario_id) REFERENCES stock(id) ON DELETE CASCADE, -- Si se elimina el producto, se eliminan todos sus movimientos
   FOREIGN KEY (referencia_trabajo_id) REFERENCES trabajos(id) ON DELETE SET NULL, -- Si se elimina el trabajo, se mantiene el movimiento pero sin trabajo asociado
   FOREIGN KEY (referencia_venta_id) REFERENCES ventas(id) ON DELETE SET NULL, -- Si se elimina la venta, se mantiene el movimiento pero sin venta asociada
   INDEX idx_movimiento_fecha (fecha), -- Índice para optimizar reportes filtrados por fecha
@@ -246,207 +170,127 @@ CREATE TABLE movimientos_inventario (
   INDEX idx_movimiento_inventario (inventario_id) -- Índice para optimizar filtros por producto
 );
 
--- Triggers para automatizar operaciones - Procedimientos que se ejecutan automáticamente cuando ocurren ciertos eventos
-
--- 1. Trigger para crear venta automáticamente al registrar un cobro
--- Este trigger se ejecuta después de insertar un nuevo registro en la tabla cobros
+-- Nuevo trigger para registrar en ventas/gastos cuando se inserta en caja
 DELIMITER $$
-CREATE TRIGGER after_cobro_insert
-AFTER INSERT ON cobros -- Se activa después de cada inserción en la tabla cobros
+CREATE TRIGGER after_caja_insert
+AFTER INSERT ON caja -- Se activa después de cada inserción en la tabla caja
 FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
 BEGIN
-  DECLARE trabajo_cliente_id INT; -- Variable para almacenar el ID del cliente asociado al trabajo
-  DECLARE tipo_venta ENUM('adelanto', 'pago final', 'venta completa'); -- Variable para determinar el tipo de venta
-  
-  -- Obtener el cliente_id del trabajo asociado al cobro
-  SELECT cliente_id INTO trabajo_cliente_id 
-  FROM trabajos 
-  WHERE id = NEW.trabajo_id;
-  
-  -- Determinar tipo de venta basado en el texto de la observación del cobro
-  IF LOWER(NEW.observacion) LIKE '%adelanto%' THEN -- Si contiene la palabra 'adelanto'
-    SET tipo_venta = 'adelanto';
-  ELSEIF LOWER(NEW.observacion) LIKE '%final%' THEN -- Si contiene la palabra 'final'
-    SET tipo_venta = 'pago final';
-  ELSE -- En cualquier otro caso
-    SET tipo_venta = 'venta completa';
+  -- Si es una entrada de dinero, crear registro en ventas
+  IF NEW.tipo_movimiento = 'entrada' THEN
+    INSERT INTO ventas (
+      fecha,
+      monto,
+      tipo,
+      descripcion,
+      cliente_id,
+      trabajo_id
+    ) VALUES (
+      DATE(NEW.fecha_hora), -- Fecha del movimiento de caja
+      NEW.monto, -- Monto del movimiento
+      CASE 
+        WHEN NEW.concepto = 'Adelanto' THEN 'adelanto'
+        WHEN NEW.concepto = 'Pago final' THEN 'pago final'
+        ELSE 'venta completa'
+      END, -- Tipo basado en el concepto de caja
+      NEW.descripcion, -- Descripción del movimiento
+      NULL, -- Cliente_id (si se necesita, debería pasarse desde la interfaz)
+      CASE 
+        WHEN NEW.tipo_referencia = 'cobro' THEN (SELECT trabajo_id FROM cobros WHERE id = NEW.referencia_id)
+        ELSE NULL
+      END -- Trabajo_id si la referencia es un cobro
+    );
+    
+    -- No se puede actualizar la tabla caja desde su propio trigger
+    -- La actualización debe hacerse desde la aplicación o con otro mecanismo
+    
+  -- Si es una salida de dinero, crear registro en gastos
+  ELSEIF NEW.tipo_movimiento = 'salida' THEN
+    INSERT INTO gastos (
+      fecha,
+      monto,
+      descripcion,
+      categoria
+    ) VALUES (
+      DATE(NEW.fecha_hora), -- Fecha del movimiento de caja
+      NEW.monto, -- Monto del movimiento
+      NEW.descripcion, -- Descripción del movimiento
+      NEW.concepto -- Categoría basada en el concepto de caja
+    );
+    
+    -- No se puede actualizar la tabla caja desde su propio trigger
+    -- La actualización debe hacerse desde la aplicación o con otro mecanismo
   END IF;
-  
-  -- Crear automáticamente un registro de venta con los datos del cobro
-  INSERT INTO ventas (fecha, monto, tipo, descripcion, cliente_id, trabajo_id, cobro_id)
-  VALUES (
-    NEW.fecha, -- Usa la misma fecha del cobro
-    NEW.monto, -- Usa el mismo monto del cobro
-    tipo_venta, -- Usa el tipo determinado anteriormente
-    CONCAT('Cobro: ', IFNULL(NEW.observacion, '')), -- Crea una descripción basada en la observación
-    trabajo_cliente_id, -- Asocia la venta al cliente del trabajo
-    NEW.trabajo_id, -- Asocia la venta al mismo trabajo
-    NEW.id -- Asocia la venta al cobro que la generó
-  );
 END$$
 DELIMITER ;
 
--- 2. Trigger para actualizar estado de trabajo cuando se completa el pago
--- Este trigger actualiza automáticamente el estado de un trabajo cuando se registra un cobro
+-- Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
 DELIMITER $$
-CREATE TRIGGER after_cobro_update_trabajo
-AFTER INSERT ON cobros -- Se activa después de cada inserción en la tabla cobros
-FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
+CREATE TRIGGER after_cobro_insert_updated
+AFTER INSERT ON cobros
+FOR EACH ROW
 BEGIN
-  DECLARE total_cobrado DECIMAL(10,2); -- Variable para almacenar la suma total de cobros del trabajo
-  DECLARE costo_total_trabajo DECIMAL(10,2); -- Variable para almacenar el costo total del trabajo
-  DECLARE estado_actual VARCHAR(20); -- Variable para almacenar el estado actual del trabajo
+  DECLARE total_cobrado DECIMAL(10,2);
+  DECLARE costo_total_trabajo DECIMAL(10,2);
   
-  -- Obtener el estado actual del trabajo asociado al cobro
-  SELECT estado INTO estado_actual
+  -- Calcular el total cobrado hasta ahora para este trabajo (incluyendo el nuevo cobro)
+  SELECT SUM(monto) INTO total_cobrado
+  FROM cobros
+  WHERE trabajo_id = NEW.trabajo_id;
+  
+  -- Obtener el costo total establecido para el trabajo
+  SELECT costo_total INTO costo_total_trabajo
   FROM trabajos
   WHERE id = NEW.trabajo_id;
   
-  -- Solo proceder si el trabajo no está ya marcado como terminado
-  IF estado_actual != 'terminado' THEN
-    -- Calcular el total cobrado hasta ahora para este trabajo (incluyendo el nuevo cobro)
-    SELECT SUM(monto) INTO total_cobrado
-    FROM cobros
-    WHERE trabajo_id = NEW.trabajo_id;
-    
-    -- Obtener el costo total establecido para el trabajo
-    SELECT costo_total INTO costo_total_trabajo
-    FROM trabajos
-    WHERE id = NEW.trabajo_id;
-
-    -- Si el total cobrado cubre o supera el costo total y el trabajo estaba en estado 'inicio',
-    -- actualizar automáticamente a estado 'proceso'
-    -- No cambiamos directamente a 'terminado' para permitir confirmar manualmente la finalización
-    IF total_cobrado >= costo_total_trabajo AND estado_actual = 'inicio' THEN
-      UPDATE trabajos
-      SET estado = 'proceso'
-      WHERE id = NEW.trabajo_id;
-    END IF;
+  -- Actualizar el monto_pagado en la tabla trabajos
+  UPDATE trabajos
+  SET 
+    monto_pagado = total_cobrado,
+    -- Actualizar automáticamente el estado_pago según el monto pagado
+    estado_pago = CASE 
+      WHEN total_cobrado >= costo_total_trabajo THEN 'Pagado'
+      WHEN total_cobrado > 0 THEN 'Parcial'
+      ELSE 'Pendiente'
+    END
+  WHERE id = NEW.trabajo_id;
+  
+  -- Si el estado es 'proceso' y ahora está pagado totalmente, cambiar a 'terminado'
+  IF total_cobrado >= costo_total_trabajo THEN
+    UPDATE trabajos
+    SET estado = IF(estado = 'proceso', 'terminado', estado)
+    WHERE id = NEW.trabajo_id AND estado = 'proceso';
   END IF;
 END$$
 DELIMITER ;
 
--- 3. Trigger para verificar inventario antes de iniciar un trabajo (ejemplo)
--- Este es un trigger de ejemplo que muestra cómo se podrían implementar validaciones adicionales
-DELIMITER $$
-CREATE TRIGGER before_trabajo_insert
-BEFORE INSERT ON trabajos -- Se activa antes de cada inserción en la tabla trabajos
-FOR EACH ROW -- Se ejecuta una vez por cada fila que se va a insertar
-BEGIN
-  -- Aquí podrías agregar lógica para verificar disponibilidad de materiales
-  -- o realizar otras validaciones antes de permitir la creación de un trabajo
-  
-  -- Por ejemplo, podrías verificar si hay suficiente stock para ciertos productos
-  -- o si el cliente tiene pagos pendientes antes de aceptar nuevos trabajos
-  
-  -- Este es solo un trigger de ejemplo que no realiza ninguna acción real
-  -- Simplemente agrega una marca '[Verificado]' a las observaciones del trabajo
-  SET NEW.observaciones = CONCAT(IFNULL(NEW.observaciones, ''), ' [Verificado]');
-END$$
-DELIMITER ;
+-- Crear vistas para facilitar el acceso a los datos de trabajos
+CREATE VIEW vista_trabajos AS
+SELECT 
+  t.id,
+  t.descripcion,
+  t.tipo,
+  t.fecha_programada,
+  t.fecha_inicio,
+  t.fecha_finalizacion,
+  t.fecha_entrega,
+  t.estado,
+  t.direccion_trabajo,
+  t.costo_total,
+  t.monto_pagado,
+  t.saldo_pendiente,
+  t.estado_pago,
+  t.observaciones,
+  c.nombre AS nombre_cliente,
+  c.telefono AS telefono_cliente
+FROM 
+  trabajos t
+LEFT JOIN 
+  clientes c ON t.cliente_id = c.id;
 
--- 4. Trigger para registrar ventas en la tabla caja
--- Este trigger se ejecuta después de insertar un nuevo registro en la tabla ventas
-DELIMITER $$
-CREATE TRIGGER after_venta_insert
-AFTER INSERT ON ventas -- Se activa después de cada inserción en la tabla ventas
-FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
-BEGIN
-  -- Variables para almacenar datos necesarios
-  DECLARE forma_pago_usada ENUM('efectivo','transferencia', 'otro');
-  DECLARE usuario_actual INT;
-  DECLARE saldo_actual DECIMAL(10,2);
-  
-  -- Obtener el último saldo de caja
-  SELECT IFNULL(MAX(saldo_resultante), 0) INTO saldo_actual FROM caja;
-  
-  -- Determinar forma de pago (podría obtenerse del cobro asociado si existe)
-  SET forma_pago_usada = 'efectivo'; -- Valor predeterminado
-  
-  -- Obtener el usuario actual (podría ser el usuario de sesión o un valor predeterminado)
-  -- Aquí usamos 1 como ejemplo, pero debería ser el ID del usuario que realiza la operación
-  SET usuario_actual = 1;
-  
-  -- Registrar el movimiento en la tabla caja
-  INSERT INTO caja (
-    fecha_hora,
-    tipo_movimiento,
-    concepto,
-    monto,
-    saldo_resultante,
-    descripcion,
-    referencia_id,
-    tipo_referencia,
-    forma_pago,
-    usuario_id,
-    observaciones
-  ) VALUES (
-    NOW(), -- Fecha y hora actual
-    'entrada', -- Las ventas son entradas de dinero
-    CASE NEW.tipo
-      WHEN 'adelanto' THEN 'Adelanto'
-      WHEN 'pago final' THEN 'Pago final'
-      ELSE 'Venta completa'
-    END,
-    NEW.monto, -- Mismo monto de la venta
-    saldo_actual + NEW.monto, -- Calcula el nuevo saldo
-    NEW.descripcion, -- Misma descripción
-    NEW.id, -- ID de la venta como referencia
-    'venta', -- Tipo de referencia
-    forma_pago_usada, -- Forma de pago determinada anteriormente
-    usuario_actual, -- Usuario que realiza la operación
-    CONCAT('Venta ID: ', NEW.id, IF(NEW.trabajo_id IS NOT NULL, CONCAT(', Trabajo ID: ', NEW.trabajo_id), ''))
-  );
-END$$
-DELIMITER ;
-
--- 5. Trigger para registrar gastos en la tabla caja
--- Este trigger se ejecuta después de insertar un nuevo registro en la tabla gastos
-DELIMITER $$
-CREATE TRIGGER after_gasto_insert
-AFTER INSERT ON gastos -- Se activa después de cada inserción en la tabla gastos
-FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
-BEGIN
-  -- Variables para almacenar datos necesarios
-  DECLARE forma_pago_usada ENUM('efectivo', 'tarjeta', 'transferencia', 'cheque', 'otro');
-  DECLARE usuario_actual INT;
-  DECLARE saldo_actual DECIMAL(10,2);
-  
-  -- Obtener el último saldo de caja
-  SELECT IFNULL(MAX(saldo_resultante), 0) INTO saldo_actual FROM caja;
-  
-  -- Determinar forma de pago (predeterminado para gastos)
-  SET forma_pago_usada = 'efectivo'; -- Valor predeterminado
-  
-  -- Obtener el usuario actual (podría ser el usuario de sesión o un valor predeterminado)
-  -- Aquí usamos 1 como ejemplo, pero debería ser el ID del usuario que realiza la operación
-  SET usuario_actual = 1;
-  
-  -- Registrar el movimiento en la tabla caja
-  INSERT INTO caja (
-    fecha_hora,
-    tipo_movimiento,
-    concepto,
-    monto,
-    saldo_resultante,
-    descripcion,
-    referencia_id,
-    tipo_referencia,
-    forma_pago,
-    usuario_id,
-    observaciones
-  ) VALUES (
-    NOW(), -- Fecha y hora actual
-    'salida', -- Los gastos son salidas de dinero
-    IFNULL(NEW.categoria, 'Gasto general'), -- Concepto basado en la categoría
-    NEW.monto, -- Mismo monto del gasto
-    saldo_actual - NEW.monto, -- Calcula el nuevo saldo (resta)
-    NEW.descripcion, -- Misma descripción
-    NEW.id, -- ID del gasto como referencia
-    'gasto', -- Tipo de referencia
-    forma_pago_usada, -- Forma de pago determinada anteriormente
-    usuario_actual, -- Usuario que realiza la operación
-    CONCAT('Gasto ID: ', NEW.id, IF(NEW.categoria IS NOT NULL, CONCAT(', Categoría: ', NEW.categoria), ''))
-  );
-END$$
-DELIMITER ;
+-- Crear vista para trabajos pendientes por fecha programada
+CREATE VIEW trabajos_pendientes AS
+SELECT *
+FROM vista_trabajos
+WHERE estado IN ('inicio', 'proceso')
+ORDER BY fecha_programada;
