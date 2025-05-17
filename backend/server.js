@@ -7,13 +7,15 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const sequelize = require('./config/database');
 const path = require('path');
-const ventaRoutes = require('./routes/ventaRoutes');
-const gastoRoutes = require('./routes/gastoRoutes');
-const trabajoRoutes = require('./routes/trabajoRoutes');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const ventaRoutes = require('./routes/ventaRoutes');
+const gastoRoutes = require('./routes/gastoRoutes');
+const trabajoRoutes = require('./routes/trabajoRoutes');
+const cobroRoutes = require('./routes/cobroRoutes');
+const cajaRoutes = require('./routes/cajaRoutes');
 
 // Crear la aplicación Express
 const app = express();
@@ -35,6 +37,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/gastos', gastoRoutes);
 app.use('/api/trabajos', trabajoRoutes);
+app.use('/api/cobros', cobroRoutes);
+app.use('/api/caja', cajaRoutes);
 
 // Ruta para verificar si el servidor está funcionando
 app.get('/', (req, res) => {

@@ -1,5 +1,46 @@
 const Gasto = require('../models/gasto');
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
+
+// Obtener todos los gastos
+exports.getGastos = async (req, res) => {
+  try {
+    const gastos = await Gasto.findAll({
+      order: [['fecha', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      data: gastos
+    });
+  } catch (error) {
+    console.error('Error al obtener gastos:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener gastos',
+      error: error.message 
+    });
+  }
+};
+
+// Crear nuevo gasto
+exports.createGasto = async (req, res) => {
+  try {
+    const gasto = await Gasto.create(req.body);
+    
+    res.status(201).json({
+      success: true,
+      data: gasto
+    });
+  } catch (error) {
+    console.error('Error al crear gasto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al crear gasto',
+      error: error.message 
+    });
+  }
+};
 
 // Obtener gastos del mes actual
 exports.getGastosDelMes = async (req, res) => {

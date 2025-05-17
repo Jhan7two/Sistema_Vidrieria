@@ -95,7 +95,7 @@ exports.getTrabajosRecientes = async (req, res) => {
     const limit = parseInt(req.query.limit) || 5;
     
     const trabajos = await Trabajo.findAll({
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       limit
     });
     

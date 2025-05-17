@@ -1,6 +1,27 @@
 const Venta = require('../models/venta');
 const { Op } = require('sequelize');
 
+// Obtener todas las ventas
+exports.getVentas = async (req, res) => {
+  try {
+    const ventas = await Venta.findAll({
+      order: [['fecha', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      data: ventas
+    });
+  } catch (error) {
+    console.error('Error al obtener ventas:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener ventas',
+      error: error.message 
+    });
+  }
+};
+
 // Obtener ventas del mes actual
 exports.getVentasDelMes = async (req, res) => {
   try {

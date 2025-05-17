@@ -24,6 +24,8 @@ exports.login = async (req, res) => {
       });
     }
 
+    console.log(`Intento de inicio de sesión: ${username}`);
+
     // Buscar usuario
     const user = await User.findOne({
       where: {
@@ -33,6 +35,7 @@ exports.login = async (req, res) => {
     });
 
     if (!user) {
+      console.log(`Usuario no encontrado: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -42,6 +45,7 @@ exports.login = async (req, res) => {
     // Verificar contraseña
     const isMatch = await user.validPassword(password);
     if (!isMatch) {
+      console.log(`Contraseña incorrecta para: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -50,6 +54,7 @@ exports.login = async (req, res) => {
 
     // Actualizar último acceso
     await user.update({ ultimo_acceso: new Date() });
+    console.log(`Inicio de sesión exitoso: ${username}`);
 
     // Generar token
     const token = generateToken(user);
@@ -76,7 +81,8 @@ exports.login = async (req, res) => {
     console.error('Error en inicio de sesión:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor'
+      message: 'Error en el servidor',
+      error: error.message
     });
   }
 };
@@ -97,8 +103,16 @@ exports.logout = (req, res) => {
 // Obtener usuario actual
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
-
+    // req.user debería estar disponible gracias al middleware protect
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+    
+    const user = req.user;
+    
     res.status(200).json({
       success: true,
       data: user.toSafeObject()
@@ -107,7 +121,8 @@ exports.getMe = async (req, res) => {
     console.error('Error al obtener información del usuario:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor'
+      message: 'Error en el servidor',
+      error: error.message
     });
   }
 };
