@@ -8,6 +8,12 @@
       <button @click="error = null" class="float-right font-bold">×</button>
     </div>
     
+    <!-- Mensaje de éxito -->
+    <div v-if="mensaje" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+      <span class="block sm:inline">{{ mensaje }}</span>
+      <button @click="mensaje = null" class="float-right font-bold">×</button>
+    </div>
+    
     <div class="saldo-actual bg-white p-4 rounded shadow mb-4">
       <strong>Saldo actual:</strong> {{ formatCurrency(saldo) }}
     </div>
@@ -127,7 +133,7 @@
             <input v-model.number="nuevoCobro.monto" type="number" min="0" :max="trabajoSeleccionado.saldo_pendiente" step="0.01" required class="border rounded px-3 py-2 w-full" />
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium mb-1">Método de pago</label>
+            <label class="block text-sm font-medium mb-1">Tipo de pago</label>
             <select v-model="nuevoCobro.metodo_pago" class="border rounded px-3 py-2 w-full">
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
@@ -168,7 +174,7 @@
               </td>
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.concepto : mov.trabajo_id }}</td>
               <td class="px-4 py-2">{{ formatCurrency(mov.monto) }}</td>
-              <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : mov.metodo_pago || mov.tipo_pago }}</td>
+              <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : (mov.metodo_pago || mov.tipo_pago) }}</td>
               <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
             </tr>
             <tr v-if="(vista === 'movimientos' && movimientos.length === 0) || (vista === 'cobros' && cobros.length === 0)">
@@ -222,7 +228,8 @@ export default {
         observaciones: ''
       },
       cargando: false,
-      error: null
+      error: null,
+      mensaje: null
     }
   },
   mounted() {
@@ -399,23 +406,48 @@ export default {
     async registrarCobroTrabajo() {
       try {
         this.cargando = true;
+        this.error = null;
+        this.mensaje = null;
+        
+        // Validaciones básicas
+        if (!this.trabajoSeleccionado) {
+          this.error = 'No hay trabajo seleccionado';
+          return;
+        }
+        
+        if (!this.nuevoCobro.monto) {
+          this.error = 'El monto es obligatorio';
+          return;
+        }
+        
+        const monto = parseFloat(this.nuevoCobro.monto);
+        
+        if (isNaN(monto) || monto <= 0) {
+          this.error = 'El monto debe ser un número positivo';
+          return;
+        }
         
         // Validar que el monto no exceda el saldo pendiente
-        if (this.nuevoCobro.monto > this.trabajoSeleccionado.saldo_pendiente) {
-          this.error = 'El monto no puede exceder el saldo pendiente';
+        const saldoPendiente = parseFloat(this.trabajoSeleccionado.saldo_pendiente);
+        if (monto > saldoPendiente) {
+          this.error = `El monto (${monto}) no puede exceder el saldo pendiente (${saldoPendiente})`;
           return;
         }
         
         // Preparar datos para enviar al backend
         const datos = {
           trabajo_id: this.trabajoSeleccionado.id,
-          monto: this.nuevoCobro.monto,
-          metodo_pago: this.nuevoCobro.metodo_pago,
-          observaciones: this.nuevoCobro.observaciones
+          monto: monto,
+          tipo_pago: this.nuevoCobro.metodo_pago || 'efectivo',
+          observacion: this.nuevoCobro.observaciones // Usar "observacion" para que coincida con el backend
         };
+        
+        console.log("Enviando datos para registrar cobro:", datos);
         
         // Llamar al servicio
         const response = await createCobro(datos);
+        
+        console.log("Cobro registrado exitosamente:", response);
         
         // Actualizar la vista
         if (response) {
@@ -424,13 +456,27 @@ export default {
           
           // Cerrar el formulario
           this.cancelarSeleccionTrabajo();
+          
+          // Mostrar mensaje de éxito
+          this.mostrarMensajeExito("Cobro registrado exitosamente");
         }
       } catch (error) {
         console.error("Error al registrar cobro:", error);
-        this.error = error.response?.data?.message || "Error al registrar cobro.";
+        this.error = error.message || "Error al registrar cobro. Intente nuevamente.";
       } finally {
         this.cargando = false;
       }
+    },
+    mostrarMensajeExito(texto) {
+      this.mensaje = texto;
+      this.error = null;
+      
+      // Ocultar el mensaje después de 3 segundos
+      setTimeout(() => {
+        if (this.mensaje === texto) {
+          this.mensaje = null;
+        }
+      }, 3000);
     },
     estadoPagoClase(estadoPago) {
       switch (estadoPago) {

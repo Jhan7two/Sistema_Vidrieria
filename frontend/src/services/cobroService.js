@@ -35,8 +35,48 @@ export async function getCobrosByTrabajoId(trabajoId) {
  * @returns {Promise} Promise con los datos del cobro creado
  */
 export async function createCobro(cobro) {
-  const response = await apiClient.post("/cobros", cobro);
-  return response.data;
+  try {
+    console.log("Enviando datos de cobro al backend:", cobro);
+    
+    // Asegurarse de que el monto es un número
+    if (cobro.monto && typeof cobro.monto === 'string') {
+      cobro.monto = parseFloat(cobro.monto);
+    }
+    
+    // Si el cobro tiene metodo_pago pero no tipo_pago, hacer la conversión
+    if (cobro.metodo_pago && !cobro.tipo_pago) {
+      cobro.tipo_pago = cobro.metodo_pago;
+      delete cobro.metodo_pago;
+    }
+    
+    const response = await apiClient.post("/cobros", cobro);
+    console.log("Respuesta del servidor al crear cobro:", response);
+    return response;
+  } catch (error) {
+    console.error("ERROR en createCobro:", error);
+    
+    // Personalizar mensaje de error según el tipo
+    let mensaje = "Error al crear cobro";
+    
+    if (error.response) {
+      // Error del servidor
+      console.error("Error del servidor:", error.response.status, error.response.data);
+      mensaje = error.response.data?.message || `Error ${error.response.status} del servidor`;
+    } else if (error.request) {
+      // Error de red
+      console.error("Error de red - no se recibió respuesta");
+      mensaje = "No se pudo conectar con el servidor";
+    } else {
+      // Otro tipo de error
+      console.error("Error al procesar la solicitud:", error.message);
+      mensaje = error.message || "Error desconocido";
+    }
+    
+    throw {
+      ...error,
+      message: mensaje
+    };
+  }
 }
 
 /**
@@ -46,6 +86,12 @@ export async function createCobro(cobro) {
  * @returns {Promise} Promise con los datos del cobro actualizado
  */
 export async function updateCobro(id, cobro) {
+  // Si el cobro tiene metodo_pago pero no tipo_pago, hacer la conversión
+  if (cobro.metodo_pago && !cobro.tipo_pago) {
+    cobro.tipo_pago = cobro.metodo_pago;
+    delete cobro.metodo_pago;
+  }
+  
   const response = await apiClient.put(`/cobros/${id}`, cobro);
   return response.data;
 }

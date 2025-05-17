@@ -48,13 +48,26 @@ exports.getCobrosByTrabajoId = async (req, res) => {
 // Crear un nuevo cobro
 exports.createCobro = async (req, res) => {
   console.log('=== INICIO REGISTRO COBRO ===');
-  console.log('Datos recibidos del frontend:', req.body);
+  console.log('Datos recibidos del frontend:', JSON.stringify(req.body));
   
   const transaction = await sequelize.transaction();
   
   try {
     // Adaptación para compatibilidad con frontend
     const { trabajo_id, monto, metodo_pago, forma_pago, observaciones, observacion } = req.body;
+    
+    // Validar los datos recibidos
+    if (!trabajo_id) {
+      console.error('ERROR: trabajo_id es requerido');
+      await transaction.rollback();
+      return res.status(400).json({ message: 'ID de trabajo es requerido' });
+    }
+    
+    if (!monto || isNaN(parseFloat(monto)) || parseFloat(monto) <= 0) {
+      console.error('ERROR: monto inválido:', monto);
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Monto debe ser un número positivo' });
+    }
     
     console.log('Datos procesados:');
     console.log('- trabajo_id:', trabajo_id);
@@ -72,24 +85,30 @@ exports.createCobro = async (req, res) => {
       return res.status(404).json({ message: 'Trabajo no encontrado' });
     }
     
+    // Convertir a números para comparación segura
+    const montoNum = parseFloat(monto);
+    const costoTotal = parseFloat(trabajo.costo_total);
+    const montoPagado = parseFloat(trabajo.monto_pagado);
+    const saldoPendiente = costoTotal - montoPagado;
+    
     console.log('Trabajo encontrado:', {
       id: trabajo.id,
       descripcion: trabajo.descripcion,
-      costo_total: trabajo.costo_total,
-      monto_pagado: trabajo.monto_pagado,
-      saldo_pendiente: trabajo.saldo_pendiente
+      costo_total: costoTotal,
+      monto_pagado: montoPagado,
+      saldo_pendiente: saldoPendiente
     });
     
     // Verificar que el monto no exceda el saldo pendiente
-    if (monto > trabajo.saldo_pendiente) {
+    if (montoNum > saldoPendiente) {
       console.log('ERROR: El monto excede el saldo pendiente', {
-        monto: monto,
-        saldo_pendiente: trabajo.saldo_pendiente
+        monto: montoNum,
+        saldo_pendiente: saldoPendiente
       });
       await transaction.rollback();
       return res.status(400).json({ 
         message: 'El monto del cobro no puede exceder el saldo pendiente',
-        saldoPendiente: trabajo.saldo_pendiente
+        saldoPendiente: saldoPendiente
       });
     }
     
@@ -105,12 +124,12 @@ exports.createCobro = async (req, res) => {
     const observacionesFinal = observaciones || observacion || '';
     console.log('Observaciones finales:', observacionesFinal);
     
-    // Crear el cobro - LOS TRIGGERS SE ENCARGARÁN DE ACTUALIZAR TRABAJO, VENTAS Y CAJA
+    // Crear el cobro
     const datosCobro = {
       trabajo_id,
       fecha: new Date(),
-      monto,
-      metodo_pago: formaPagoFinal,
+      monto: montoNum,
+      tipo_pago: formaPagoFinal,
       observacion: observacionesFinal
     };
     
@@ -118,6 +137,46 @@ exports.createCobro = async (req, res) => {
     
     const cobro = await Cobro.create(datosCobro, { transaction });
     console.log('Cobro creado con ID:', cobro.id);
+    
+    // Actualizar el trabajo con el nuevo monto pagado
+    const nuevoMontoPagado = montoPagado + montoNum;
+    let nuevoEstadoPago = 'Pendiente';
+    
+    if (nuevoMontoPagado >= costoTotal) {
+      nuevoEstadoPago = 'Pagado';
+    } else if (nuevoMontoPagado > 0) {
+      nuevoEstadoPago = 'Parcial';
+    }
+    
+    await trabajo.update({
+      monto_pagado: nuevoMontoPagado,
+      estado_pago: nuevoEstadoPago
+    }, { transaction });
+    console.log('Trabajo actualizado con nuevo monto pagado:', nuevoMontoPagado);
+    
+    // Registrar el movimiento en caja
+    const ultimoMovimiento = await Caja.findOne({
+      order: [['id', 'DESC']]
+    }, { transaction });
+    
+    const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
+    const nuevoSaldo = saldoActual + montoNum;
+    
+    await Caja.create({
+      fecha_hora: new Date(),
+      tipo_movimiento: 'entrada',
+      concepto: 'Cobro de trabajo',
+      monto: montoNum,
+      saldo_resultante: nuevoSaldo,
+      descripcion: `Cobro de trabajo #${trabajo.id} - ${trabajo.descripcion || 'Sin descripción'}`,
+      referencia_id: cobro.id,
+      tipo_referencia: 'cobro',
+      forma_pago: formaPagoFinal,
+      usuario_id: usuarioId,
+      observaciones: observacionesFinal || 'Cobro registrado automáticamente'
+    }, { transaction });
+    
+    console.log('Movimiento de caja registrado con saldo:', nuevoSaldo);
     
     await transaction.commit();
     console.log('Transacción completada exitosamente');
@@ -129,7 +188,7 @@ exports.createCobro = async (req, res) => {
       trabajo_id: cobro.trabajo_id,
       fecha: cobro.fecha,
       monto: cobro.monto,
-      metodo_pago: cobro.metodo_pago,
+      tipo_pago: cobro.tipo_pago,
       observacion: cobro.observacion,
       message: 'Cobro registrado exitosamente'
     });
@@ -143,7 +202,7 @@ exports.createCobro = async (req, res) => {
       console.log('- Errores de validación:', JSON.stringify(error.errors));
     }
     console.log('=== FIN ERROR REGISTRO COBRO ===');
-    res.status(500).json({ message: 'Error al crear cobro', error: error.message });
+    res.status(500).json({ message: 'Error al crear cobro: ' + error.message, error: true });
   }
 };
 
@@ -153,7 +212,7 @@ exports.updateCobro = async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { monto, metodo_pago, observaciones } = req.body;
+    const { monto, tipo_pago, observaciones } = req.body;
     
     // Verificar que el cobro existe
     const cobro = await Cobro.findByPk(id, { transaction });
@@ -186,7 +245,7 @@ exports.updateCobro = async (req, res) => {
     // Actualizar el cobro
     await cobro.update({
       monto,
-      metodo_pago,
+      tipo_pago,
       observaciones
     }, { transaction });
     
@@ -230,7 +289,7 @@ exports.updateCobro = async (req, res) => {
       await movimientoCaja.update({
         monto,
         saldo_resultante: nuevoSaldo,
-        forma_pago: metodo_pago,
+        forma_pago: tipo_pago,
         observaciones: observaciones || 'Cobro actualizado automáticamente'
       }, { transaction });
     } else {
@@ -253,7 +312,7 @@ exports.updateCobro = async (req, res) => {
         descripcion: `Cobro de trabajo #${trabajo.id} - ${trabajo.descripcion || 'Sin descripción'}`,
         referencia_id: id,
         tipo_referencia: 'cobro',
-        forma_pago: metodo_pago,
+        forma_pago: tipo_pago,
         usuario_id: req.user ? req.user.id : 1,
         observaciones: observaciones || 'Cobro registrado automáticamente'
       }, { transaction });
