@@ -140,12 +140,29 @@
         </div>
       </div>
     </div>
+    <!-- Modal para detalles del trabajo -->
+    <DetallesTrabajo 
+      v-if="modalDetalles.visible" 
+      :trabajo="modalDetalles.trabajo" 
+      @cerrar="cerrarModalDetalles"
+      @editar="editarTrabajo"
+      @generar-comprobante="generarComprobante"
+    />
+    <!-- Modal para editar trabajo -->
+    <EditarTrabajo 
+      v-if="modalEditar.visible" 
+      :trabajo="modalEditar.trabajo" 
+      @cerrar="cerrarModalEditar"
+      @guardar="guardarTrabajo"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import CalendarioTrabajos from '@/components/CalendarioTrabajos.vue'
+import DetallesTrabajo from '@/components/DetallesTrabajo.vue'
+import EditarTrabajo from '@/components/EditarTrabajo.vue'
 import { getAllTrabajos, updateTrabajo } from '@/services/trabajoService'
 
 const vista = ref('tabla')
@@ -159,6 +176,8 @@ const mes = ref(new Date().getMonth())
 const anio = ref(new Date().getFullYear())
 const cargando = ref(false)
 const error = ref(null)
+const modalDetalles = ref({ visible: false, trabajo: null })
+const modalEditar = ref({ visible: false, trabajo: null })
 
 // Cargar trabajos al iniciar el componente
 onMounted(async () => {
@@ -307,10 +326,45 @@ function cerrarModalNuevoTrabajo() {
   modalNuevoTrabajo.value = false
 }
 function verDetalles(trabajo) {
-  // Lógica para ver detalles (próximamente)
+  modalDetalles.value = { visible: true, trabajo }
+}
+function cerrarModalDetalles() {
+  modalDetalles.value.visible = false
 }
 function editarTrabajo(trabajo) {
-  // Lógica para editar trabajo (próximamente)
+  modalEditar.value = { visible: true, trabajo }
+}
+function cerrarModalEditar() {
+  modalEditar.value.visible = false
+}
+async function guardarTrabajo(trabajoActualizado) {
+  try {
+    cargando.value = true
+    error.value = null
+    
+    // Llamar al servicio para actualizar el trabajo
+    const response = await updateTrabajo(trabajoActualizado.id, trabajoActualizado)
+    
+    // Actualizar trabajo en la lista local
+    const index = trabajos.value.findIndex(t => t.id === trabajoActualizado.id)
+    if (index !== -1) {
+      // Preservar clienteInfo si existe
+      const clienteInfo = trabajos.value[index].clienteInfo
+      trabajos.value[index] = { ...response, clienteInfo }
+    }
+    
+    // Cerrar modal
+    cerrarModalEditar()
+    
+    // Mostrar mensaje de éxito
+    alert('Trabajo actualizado correctamente')
+    
+  } catch (err) {
+    console.error('Error al actualizar trabajo:', err)
+    error.value = 'Error al actualizar el trabajo'
+  } finally {
+    cargando.value = false
+  }
 }
 function generarComprobante(trabajo) {
   // Lógica para generar comprobante (próximamente)
