@@ -187,14 +187,73 @@
       </div>
     </div>
     <div class="cierre-dia">
-      <button @click="cerrarDia" :disabled="cerrado" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Cerrar Día</button>
-      <span v-if="cerrado" class="cerrado-msg">Día cerrado</span>
+      <button @click="mostrarDialogoCierre" :disabled="cerrado" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Cerrar Día</button>
+      <span v-if="cerrado" class="cerrado-msg ml-2 text-gray-600">Día cerrado</span>
+    </div>
+
+    <!-- Modal de cierre de caja -->
+    <div v-if="mostrarModalCierre" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">Cerrar Caja Diaria</h3>
+        
+        <div class="mb-4">
+          <div class="bg-blue-50 p-3 rounded mb-4">
+            <p class="text-sm text-blue-800">Al cerrar la caja se generará un resumen de los movimientos del día. Esta acción no se puede deshacer.</p>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <div>
+              <p class="text-sm font-medium">Total Entradas:</p>
+              <p class="font-bold">{{ formatCurrency(calcularTotalEntradas()) }}</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium">Total Salidas:</p>
+              <p class="font-bold">{{ formatCurrency(calcularTotalSalidas()) }}</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium">Saldo del Día:</p>
+              <p class="font-bold">{{ formatCurrency(calcularTotalEntradas() - calcularTotalSalidas()) }}</p>
+            </div>
+            <div>
+              <p class="text-sm font-medium">Saldo Actual:</p>
+              <p class="font-bold">{{ formatCurrency(saldo) }}</p>
+            </div>
+          </div>
+          
+          <label class="block text-sm font-medium mb-1">Observaciones (opcional)</label>
+          <textarea v-model="observacionesCierre" rows="3" class="border rounded px-3 py-2 w-full"></textarea>
+        </div>
+        
+        <div class="flex justify-end gap-2">
+          <button @click="cancelarCierre" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">Cancelar</button>
+          <button @click="confirmarCierreDia" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Confirmar Cierre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de resumen de cierre -->
+    <div v-if="mostrarResumenCierre" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+        <h3 class="text-lg font-bold mb-4">Resumen de Cierre de Caja</h3>
+        
+        <div class="mb-4">
+          <p><strong>Fecha:</strong> {{ formatFechaCompleta(resumenCierre.fecha) }}</p>
+          <p><strong>Total Entradas:</strong> {{ formatCurrency(resumenCierre.total_entradas) }}</p>
+          <p><strong>Total Salidas:</strong> {{ formatCurrency(resumenCierre.total_salidas) }}</p>
+          <p><strong>Saldo Final del Día:</strong> {{ formatCurrency(resumenCierre.saldo_final) }}</p>
+          <p><strong>Saldo Actual en Caja:</strong> {{ formatCurrency(resumenCierre.saldo_actual) }}</p>
+        </div>
+        
+        <div class="flex justify-end">
+          <button @click="cerrarResumen" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Aceptar</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo } from '../../services/cajaService';
+import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo, verificarCierreDiario } from '../../services/cajaService';
 import { buscarTrabajosPorCobrar } from '../../services/cajaService';
 import { createCobro } from '../../services/cobroService';
 export default {
@@ -231,12 +290,19 @@ export default {
       },
       cargando: false,
       error: null,
-      mensaje: null
+      mensaje: null,
+      // Datos para el cierre de caja
+      mostrarModalCierre: false,
+      observacionesCierre: '',
+      mostrarResumenCierre: false,
+      resumenCierre: {}
     }
   },
   mounted() {
     // Cargar datos iniciales
     this.cargarDatos();
+    // Verificar si ya existe un cierre para el día actual
+    this.verificarCierreDiario();
   },
   methods: {
     async cargarDatos() {
@@ -253,6 +319,9 @@ export default {
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
+        
+        // Verificar si ya existe un cierre para el día actual
+        await this.verificarCierreDiario();
       } catch (error) {
         console.error("Error al cargar datos:", error);
         this.error = "Error al cargar datos. Intente nuevamente.";
@@ -297,16 +366,7 @@ export default {
       }
     },
     async cerrarDia() {
-      try {
-        this.cargando = true;
-        await cerrarCaja();
-        this.cerrado = true;
-      } catch (error) {
-        console.error("Error al cerrar día:", error);
-        this.error = "Error al cerrar día. Intente nuevamente.";
-      } finally {
-        this.cargando = false;
-      }
+      this.mostrarDialogoCierre();
     },
     formatCurrency(value) {
       if (typeof value !== 'number') {
@@ -515,6 +575,92 @@ export default {
       
       // Si no tenemos información del cliente
       return 'No definido';
+    },
+    mostrarDialogoCierre() {
+      this.mostrarModalCierre = true;
+      this.observacionesCierre = '';
+    },
+    
+    cancelarCierre() {
+      this.mostrarModalCierre = false;
+      this.observacionesCierre = '';
+    },
+    
+    async confirmarCierreDia() {
+      try {
+        // Verificar nuevamente si ya existe un cierre para el día actual
+        const verificacion = await verificarCierreDiario();
+        if (verificacion.existeCierre) {
+          this.mostrarModalCierre = false;
+          this.cerrado = true;
+          this.error = "Ya existe un cierre de caja para el día de hoy";
+          return;
+        }
+        
+        this.cargando = true;
+        this.mostrarModalCierre = false;
+        
+        // Preparar datos para enviar al backend
+        const datos = {
+          observaciones: this.observacionesCierre.trim() || 'Cierre de caja diario'
+        };
+        
+        // Llamar al servicio
+        const response = await cerrarCaja(datos);
+        
+        // Mostrar resumen del cierre
+        this.resumenCierre = response;
+        this.mostrarResumenCierre = true;
+        
+        // Actualizar estado
+        this.cerrado = true;
+        this.mensaje = "Caja cerrada correctamente";
+      } catch (error) {
+        console.error("Error al cerrar día:", error);
+        
+        // Manejar el caso específico de que ya exista un cierre
+        if (error.response && error.response.status === 400) {
+          this.error = error.response.data.message || "Error al cerrar día";
+          this.cerrado = true; // Marcar como cerrado aunque haya fallado por esta razón
+        } else {
+          this.error = error.response?.data?.message || "Error al cerrar día. Intente nuevamente.";
+        }
+      } finally {
+        this.cargando = false;
+      }
+    },
+    
+    cerrarResumen() {
+      this.mostrarResumenCierre = false;
+    },
+    
+    formatFechaCompleta(fecha) {
+      if (!fecha) return '-';
+      const d = new Date(fecha);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    },
+    calcularTotalEntradas() {
+      return this.movimientos
+        .filter(mov => mov.tipo_movimiento === 'entrada')
+        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+    },
+    calcularTotalSalidas() {
+      return this.movimientos
+        .filter(mov => mov.tipo_movimiento === 'salida')
+        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+    },
+    async verificarCierreDiario() {
+      try {
+        const response = await verificarCierreDiario();
+        this.cerrado = response.existeCierre;
+        
+        if (this.cerrado) {
+          const cierre = response.cierre;
+          this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${cierre.id}`;
+        }
+      } catch (error) {
+        console.error("Error al verificar cierre diario:", error);
+      }
     }
   }
 }

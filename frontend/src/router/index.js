@@ -14,6 +14,7 @@ import NotFound from '../views/NotFound.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
+import ReportesCaja from '../views/admin/reportes-caja.vue'
 
 // Rutas
 const routes = [
@@ -62,6 +63,12 @@ const routes = [
         name: 'trabajos',
         component: Trabajos,
         meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin/reportes-caja',
+        name: 'reportesCaja',
+        component: ReportesCaja,
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   },

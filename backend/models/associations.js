@@ -5,6 +5,7 @@ const Cobro = require('./cobro');
 const Venta = require('./venta');
 const Caja = require('./caja');
 const Gasto = require('./gasto');
+const CierreCaja = require('./cierreCaja');
 
 console.log('=== CONFIGURANDO ASOCIACIONES DE MODELOS ===');
 
@@ -75,6 +76,18 @@ Venta.belongsTo(Cobro, {
 });
 console.log('✅ Cobro-Venta: Asociación configurada');
 
+// Relación Usuario-CierreCaja (Un usuario puede tener muchos cierres de caja)
+const User = require('./user');
+User.hasMany(CierreCaja, {
+  foreignKey: 'usuario_id',
+  as: 'cierresCaja'
+});
+CierreCaja.belongsTo(User, {
+  foreignKey: 'usuario_id',
+  as: 'usuario'
+});
+console.log('✅ Usuario-CierreCaja: Asociación configurada');
+
 // Asegúrate de que este archivo se importe en algún lugar para que se ejecuten las asociaciones
 console.log('=== ASOCIACIONES DE MODELOS CONFIGURADAS ===');
 
@@ -85,6 +98,7 @@ module.exports = {
   Venta,
   Caja,
   Gasto,
+  CierreCaja,
   setupAssociations: () => {
     console.log('Asociaciones entre modelos establecidas');
   }

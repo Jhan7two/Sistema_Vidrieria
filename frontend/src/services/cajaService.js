@@ -64,12 +64,20 @@ export async function getSaldoActual() {
 
 /**
  * Realiza el cierre de caja del día
- * @param {Object} cierre - Datos del cierre de caja
+ * @param {Object} cierre - Datos del cierre de caja (observaciones)
  * @returns {Promise} Promise con los datos del cierre registrado
  */
-export async function cerrarCaja(cierre) {
-  const data = await apiClient.post("/caja/cerrar", cierre);
-  return data;
+export async function cerrarCaja(cierre = {}) {
+  try {
+    console.log("Llamando a endpoint /caja/cerrar con datos:", cierre);
+    const response = await apiClient.post("/caja/cerrar", cierre);
+    console.log("Respuesta del endpoint de cierre de caja:", response);
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en cerrarCaja:", error);
+    throw error; // Relanzamos el error para que se maneje en el componente
+  }
 }
 
 /**
@@ -154,4 +162,62 @@ export async function registrarCobroTrabajo(cobro) {
   
   const data = await apiClient.post("/cobros", cobro);
   return data;
+}
+
+/**
+ * Obtiene el historial de cierres de caja
+ * @param {Object} params - Parámetros de consulta (page, limit, desde, hasta)
+ * @returns {Promise} Promise con los cierres de caja
+ */
+export async function getHistorialCierres(params = {}) {
+  try {
+    // Construir query string
+    const queryParams = new URLSearchParams();
+    
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.desde) queryParams.append('desde', params.desde);
+    if (params.hasta) queryParams.append('hasta', params.hasta);
+    
+    const queryString = queryParams.toString();
+    const url = `/caja/cierres${queryString ? `?${queryString}` : ''}`;
+    
+    console.log("Llamando a endpoint:", url);
+    const response = await apiClient.get(url);
+    console.log("Respuesta del historial de cierres:", response);
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en getHistorialCierres:", error);
+    // Devolvemos un valor predeterminado en caso de error
+    return { 
+      cierres: [], 
+      meta: { 
+        total: 0, 
+        pages: 0, 
+        currentPage: 1,
+        totalEntradas: 0,
+        totalSalidas: 0,
+        totalSaldo: 0
+      } 
+    };
+  }
+}
+
+/**
+ * Verifica si existe un cierre de caja para el día actual
+ * @returns {Promise} Promise con la información del cierre si existe
+ */
+export async function verificarCierreDiario() {
+  try {
+    console.log("Verificando si existe cierre para el día actual");
+    const response = await apiClient.get("/caja/verificar-cierre-diario");
+    console.log("Respuesta de verificación de cierre diario:", response);
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en verificarCierreDiario:", error);
+    // Devolvemos un valor predeterminado en caso de error
+    return { existeCierre: false, cierre: null };
+  }
 }

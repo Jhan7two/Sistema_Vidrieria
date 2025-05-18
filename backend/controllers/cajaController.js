@@ -1,6 +1,7 @@
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const CierreCaja = require('../models/cierreCaja');
 
 // Obtener el saldo actual de la caja
 exports.getSaldoActual = async (req, res) => {
@@ -339,6 +340,25 @@ exports.cerrarCaja = async (req, res) => {
     const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
     
+    // Verificar si ya existe un cierre para el día actual
+    const cierreExistente = await CierreCaja.findOne({
+      where: {
+        fecha: {
+          [Op.gte]: fechaInicio,
+          [Op.lt]: fechaFin
+        }
+      },
+      transaction
+    });
+    
+    if (cierreExistente) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        message: 'Ya existe un cierre de caja para el día de hoy',
+        cierre_id: cierreExistente.id
+      });
+    }
+    
     // Usar directamente el ID de usuario de la sesión o ID predeterminado
     const usuarioId = req.user ? req.user.id : 1;
     console.log('ID de usuario para cierre de caja:', usuarioId);
@@ -375,15 +395,17 @@ exports.cerrarCaja = async (req, res) => {
     
     const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
     
-    // En una implementación completa, aquí se insertaría en la tabla cierres_caja
-    // const cierreCaja = await CierreCaja.create({
-    //   fecha: fechaInicio,
-    //   total_entradas: totalEntradas,
-    //   total_salidas: totalSalidas,
-    //   saldo_final: saldoFinal,
-    //   usuario_id: usuarioId,
-    //   observaciones: observaciones || 'Cierre de caja diario'
-    // }, { transaction });
+    // Guardar el cierre en la tabla cierres_caja con los nombres de columnas correctos
+    const cierreCaja = await CierreCaja.create({
+      fecha: fechaInicio,
+      total_ventas: totalEntradas, // Cambiado de total_entradas a total_ventas
+      total_gastos: totalSalidas, // Cambiado de total_salidas a total_gastos
+      saldo_final: saldoFinal,
+      usuario_id: usuarioId,
+      observaciones: observaciones || 'Cierre de caja diario'
+    }, { transaction });
+    
+    console.log('Cierre de caja guardado con ID:', cierreCaja.id);
     
     await transaction.commit();
     
@@ -391,14 +413,126 @@ exports.cerrarCaja = async (req, res) => {
     res.status(200).json({
       message: 'Caja cerrada correctamente',
       fecha: fechaInicio,
-      total_entradas: totalEntradas,
+      total_entradas: totalEntradas, // Mantenemos estos nombres en la respuesta para no romper el frontend
       total_salidas: totalSalidas,
       saldo_final: saldoFinal,
-      saldo_actual: saldoActual
+      saldo_actual: saldoActual,
+      cierre_id: cierreCaja.id
     });
   } catch (error) {
     await transaction.rollback();
     console.error('Error al intentar cerrar caja:', error);
     res.status(500).json({ message: 'Error al cerrar caja', error: error.message });
+  }
+};
+
+// Obtener historial de cierres de caja
+exports.getHistorialCierres = async (req, res) => {
+  try {
+    // Parámetros de paginación y filtros
+    const { page = 1, limit = 10, desde, hasta } = req.query;
+    const offset = (page - 1) * limit;
+    
+    // Construir condiciones de filtro
+    const whereCondition = {};
+    
+    if (desde || hasta) {
+      whereCondition.fecha = {};
+      
+      if (desde) {
+        const fechaDesde = new Date(desde);
+        whereCondition.fecha[Op.gte] = fechaDesde;
+      }
+      
+      if (hasta) {
+        const fechaHasta = new Date(hasta);
+        // Ajustar al final del día
+        fechaHasta.setHours(23, 59, 59, 999);
+        whereCondition.fecha[Op.lte] = fechaHasta;
+      }
+    }
+    
+    // Obtener cierres de caja con paginación
+    const { count, rows: cierres } = await CierreCaja.findAndCountAll({
+      where: whereCondition,
+      include: [
+        {
+          model: require('../models/user'),
+          as: 'usuario',
+          attributes: ['id', 'nombre', 'apellido', 'email']
+        }
+      ],
+      order: [['fecha', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+    
+    // Calcular totales generales usando los nombres de columnas correctos
+    const totalEntradas = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.total_ventas || 0), 0);
+    const totalSalidas = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.total_gastos || 0), 0);
+    const totalSaldo = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.saldo_final || 0), 0);
+    
+    // Transformar los datos para que coincidan con lo que espera el frontend
+    const cierresTransformados = cierres.map(cierre => {
+      const cierreJSON = cierre.toJSON();
+      return {
+        ...cierreJSON,
+        // Agregar propiedades con los nombres que espera el frontend
+        total_entradas: cierreJSON.total_ventas,
+        total_salidas: cierreJSON.total_gastos
+      };
+    });
+    
+    // Devolver respuesta
+    res.status(200).json({
+      cierres: cierresTransformados,
+      meta: {
+        total: count,
+        pages: Math.ceil(count / limit),
+        currentPage: parseInt(page),
+        totalEntradas,
+        totalSalidas,
+        totalSaldo
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error al obtener historial de cierres de caja:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener historial de cierres de caja', 
+      error: error.message 
+    });
+  }
+};
+
+// Verificar si existe un cierre para el día actual
+exports.verificarCierreDiario = async (req, res) => {
+  try {
+    const hoy = new Date();
+    const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+    
+    const cierreExistente = await CierreCaja.findOne({
+      where: {
+        fecha: {
+          [Op.gte]: fechaInicio,
+          [Op.lt]: fechaFin
+        }
+      }
+    });
+    
+    res.json({
+      existeCierre: !!cierreExistente,
+      cierre: cierreExistente ? {
+        id: cierreExistente.id,
+        fecha: cierreExistente.fecha,
+        total_entradas: cierreExistente.total_ventas,
+        total_salidas: cierreExistente.total_gastos,
+        saldo_final: cierreExistente.saldo_final
+      } : null
+    });
+  } catch (error) {
+    console.error('Error al verificar cierre diario:', error);
+    res.status(500).json({ message: 'Error al verificar cierre diario', error: error.message });
   }
 };

@@ -34,4 +34,18 @@ router.post(
     cajaController.cerrarCaja
 );
 
+// Obtener historial de cierres de caja
+router.get(
+    '/cierres',
+    authorize('admin'),
+    cajaController.getHistorialCierres
+);
+
+// Verificar si existe un cierre para el día actual
+router.get(
+    '/verificar-cierre-diario',
+    authorize('admin', 'vendedor'),
+    cajaController.verificarCierreDiario
+);
+
 module.exports = router;
