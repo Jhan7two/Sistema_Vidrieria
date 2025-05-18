@@ -50,8 +50,22 @@ export async function createTrabajo(trabajo) {
  * @returns {Promise} Promise con los datos del trabajo actualizado
  */
 export async function updateTrabajo(id, trabajo) {
-  const response = await apiClient.put(`/trabajos/${id}`, trabajo);
-  return response.data;
+  try {
+    console.log('Enviando actualización de trabajo:', id, trabajo);
+    const response = await apiClient.put(`/trabajos/${id}`, trabajo);
+    console.log('Respuesta de actualización recibida:', response);
+    return response;
+  } catch (error) {
+    console.error('Error en updateTrabajo:', error);
+    if (error.response) {
+      console.error('Respuesta de error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No se recibió respuesta del servidor');
+    } else {
+      console.error('Error de configuración:', error.message);
+    }
+    throw error;
+  }
 }
 
 /**

@@ -345,12 +345,29 @@ async function guardarTrabajo(trabajoActualizado) {
     // Llamar al servicio para actualizar el trabajo
     const response = await updateTrabajo(trabajoActualizado.id, trabajoActualizado)
     
-    // Actualizar trabajo en la lista local
+    // Actualizar trabajo en la lista local de forma reactiva
     const index = trabajos.value.findIndex(t => t.id === trabajoActualizado.id)
     if (index !== -1) {
+      // Crear un nuevo array para asegurar la reactividad
+      const nuevosTrabajosArray = [...trabajos.value]
+      
       // Preservar clienteInfo si existe
-      const clienteInfo = trabajos.value[index].clienteInfo
-      trabajos.value[index] = { ...response, clienteInfo }
+      const clienteInfo = nuevosTrabajosArray[index].clienteInfo
+      
+      // Reemplazar el trabajo con los datos actualizados
+      nuevosTrabajosArray[index] = { 
+        ...response, 
+        cliente: response.cliente || nuevosTrabajosArray[index].cliente,
+        clienteInfo: clienteInfo
+      }
+      
+      // Asignar el nuevo array para activar la reactividad
+      trabajos.value = nuevosTrabajosArray
+      
+      console.log('Trabajo actualizado exitosamente en el estado local', nuevosTrabajosArray[index])
+    } else {
+      console.warn('No se encontró el trabajo en la lista local, recargando todos los trabajos')
+      await cargarTrabajos()
     }
     
     // Cerrar modal
