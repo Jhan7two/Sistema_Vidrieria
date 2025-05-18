@@ -1,4 +1,5 @@
 const Gasto = require('../models/gasto');
+const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -25,14 +26,49 @@ exports.getGastos = async (req, res) => {
 
 // Crear nuevo gasto
 exports.createGasto = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
-    const gasto = await Gasto.create(req.body);
+    // Extraer forma_pago del body antes de crear el gasto
+    const { forma_pago, ...gastoData } = req.body;
+    
+    // Crear el gasto solo con los datos necesarios
+    const gasto = await Gasto.create(gastoData, { transaction });
+    
+    // Obtener el último saldo de caja
+    const ultimoMovimiento = await Caja.findOne({
+      order: [['id', 'DESC']],
+      transaction
+    });
+    
+    const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
+    const montoNumerico = parseFloat(req.body.monto);
+    
+    // Usar ID de usuario predeterminado (1) o del usuario en sesión
+    const usuarioId = req.user ? req.user.id : 1;
+    
+    // Registrar el movimiento en la tabla caja
+    await Caja.create({
+      fecha_hora: new Date(),
+      tipo_movimiento: 'salida',
+      concepto: req.body.categoria || 'Gasto general',
+      monto: montoNumerico,
+      saldo_resultante: saldoActual - montoNumerico,
+      descripcion: req.body.descripcion,
+      referencia_id: gasto.id,
+      tipo_referencia: 'gasto',
+      forma_pago: forma_pago || 'efectivo',
+      usuario_id: usuarioId,
+      observaciones: `Gasto ID: ${gasto.id}, ${req.body.descripcion}`
+    }, { transaction });
+    
+    await transaction.commit();
     
     res.status(201).json({
       success: true,
       data: gasto
     });
   } catch (error) {
+    await transaction.rollback();
     console.error('Error al crear gasto:', error);
     res.status(500).json({ 
       success: false, 

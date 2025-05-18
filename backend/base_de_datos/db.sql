@@ -170,61 +170,198 @@ CREATE TABLE movimientos_inventario (
   INDEX idx_movimiento_inventario (inventario_id) -- Índice para optimizar filtros por producto
 );
 
--- Nuevo trigger para registrar en ventas/gastos cuando se inserta en caja
+-- Crear tabla para log de errores
+CREATE TABLE log_errores (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  origen VARCHAR(100) NOT NULL,
+  mensaje TEXT NOT NULL,
+  fecha DATETIME NOT NULL,
+  detalles TEXT NULL
+);
+
+-- 1. Trigger para crear venta automáticamente al registrar un cobro
+/*
 DELIMITER $$
-CREATE TRIGGER after_caja_insert
-AFTER INSERT ON caja -- Se activa después de cada inserción en la tabla caja
-FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
+CREATE TRIGGER after_cobro_insert
+AFTER INSERT ON cobros
+FOR EACH ROW
 BEGIN
-  -- Si es una entrada de dinero, crear registro en ventas
-  IF NEW.tipo_movimiento = 'entrada' THEN
-    INSERT INTO ventas (
-      fecha,
-      monto,
-      tipo,
-      descripcion,
-      cliente_id,
-      trabajo_id
-    ) VALUES (
-      DATE(NEW.fecha_hora), -- Fecha del movimiento de caja
-      NEW.monto, -- Monto del movimiento
-      CASE 
-        WHEN NEW.concepto = 'Adelanto' THEN 'adelanto'
-        WHEN NEW.concepto = 'Pago final' THEN 'pago final'
-        ELSE 'venta completa'
-      END, -- Tipo basado en el concepto de caja
-      NEW.descripcion, -- Descripción del movimiento
-      NULL, -- Cliente_id (si se necesita, debería pasarse desde la interfaz)
-      CASE 
-        WHEN NEW.tipo_referencia = 'cobro' THEN (SELECT trabajo_id FROM cobros WHERE id = NEW.referencia_id)
-        ELSE NULL
-      END -- Trabajo_id si la referencia es un cobro
-    );
+  DECLARE trabajo_cliente_id INT;
+  DECLARE tipo_venta ENUM('adelanto', 'pago final', 'venta completa');
+  
+  -- Obtener el cliente_id del trabajo asociado al cobro
+  SELECT cliente_id INTO trabajo_cliente_id 
+  FROM trabajos 
+  WHERE id = NEW.trabajo_id;
+  
+  -- Determinar tipo de venta basado en el texto de la observación del cobro
+  IF LOWER(NEW.observacion) LIKE '%adelanto%' THEN
+    SET tipo_venta = 'adelanto';
+  ELSEIF LOWER(NEW.observacion) LIKE '%final%' THEN
+    SET tipo_venta = 'pago final';
+  ELSE
+    SET tipo_venta = 'venta completa';
+  END IF;
+  
+  -- Crear automáticamente un registro de venta con los datos del cobro
+  INSERT INTO ventas (
+    fecha,
+    monto,
+    tipo,
+    descripcion,
+    cliente_id,
+    trabajo_id,
+    cobro_id
+  ) VALUES (
+    NEW.fecha,
+    NEW.monto,
+    tipo_venta,
+    CONCAT('Cobro: ', IFNULL(NEW.observacion, '')),
+    trabajo_cliente_id,
+    NEW.trabajo_id,
+    NEW.id
+  );
+END$$
+DELIMITER ;
+*/
+
+-- 2. Trigger para actualizar estado de trabajo cuando se completa el pago
+DELIMITER $$
+CREATE TRIGGER after_cobro_update_trabajo
+AFTER INSERT ON cobros
+FOR EACH ROW
+BEGIN
+  DECLARE total_cobrado DECIMAL(10,2);
+  DECLARE costo_total_trabajo DECIMAL(10,2);
+  DECLARE estado_actual VARCHAR(20);
+  
+  -- Obtener el estado actual del trabajo asociado al cobro
+  SELECT estado INTO estado_actual
+  FROM trabajos
+  WHERE id = NEW.trabajo_id;
+  
+  -- Solo proceder si el trabajo no está ya marcado como terminado
+  IF estado_actual != 'terminado' THEN
+    -- Calcular el total cobrado hasta ahora para este trabajo (incluyendo el nuevo cobro)
+    SELECT SUM(monto) INTO total_cobrado
+    FROM cobros
+    WHERE trabajo_id = NEW.trabajo_id;
     
-    -- No se puede actualizar la tabla caja desde su propio trigger
-    -- La actualización debe hacerse desde la aplicación o con otro mecanismo
-    
-  -- Si es una salida de dinero, crear registro en gastos
-  ELSEIF NEW.tipo_movimiento = 'salida' THEN
-    INSERT INTO gastos (
-      fecha,
-      monto,
-      descripcion,
-      categoria
-    ) VALUES (
-      DATE(NEW.fecha_hora), -- Fecha del movimiento de caja
-      NEW.monto, -- Monto del movimiento
-      NEW.descripcion, -- Descripción del movimiento
-      NEW.concepto -- Categoría basada en el concepto de caja
-    );
-    
-    -- No se puede actualizar la tabla caja desde su propio trigger
-    -- La actualización debe hacerse desde la aplicación o con otro mecanismo
+    -- Obtener el costo total establecido para el trabajo
+    SELECT costo_total INTO costo_total_trabajo
+    FROM trabajos
+    WHERE id = NEW.trabajo_id;
+
+    -- Si el total cobrado cubre o supera el costo total y el trabajo estaba en estado 'inicio',
+    -- actualizar automáticamente a estado 'proceso'
+    IF total_cobrado >= costo_total_trabajo AND estado_actual = 'inicio' THEN
+      UPDATE trabajos
+      SET estado = 'proceso'
+      WHERE id = NEW.trabajo_id;
+    END IF;
   END IF;
 END$$
 DELIMITER ;
 
--- Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
+-- 3. Trigger para registrar ventas en la tabla caja
+/*
+DELIMITER $$
+CREATE TRIGGER after_venta_insert
+AFTER INSERT ON ventas
+FOR EACH ROW
+BEGIN
+  DECLARE forma_pago_usada ENUM('efectivo','transferencia', 'otro');
+  DECLARE usuario_actual INT;
+  DECLARE saldo_actual DECIMAL(10,2);
+  
+  -- Obtener el último saldo de caja
+  SELECT IFNULL(MAX(saldo_resultante), 0) INTO saldo_actual FROM caja;
+  
+  -- Determinar forma de pago (predeterminado)
+  SET forma_pago_usada = 'efectivo';
+  
+  -- Obtener el usuario actual (predeterminado)
+  SET usuario_actual = 1;
+  
+  -- Registrar el movimiento en la tabla caja
+  INSERT INTO caja (
+    fecha_hora,
+    tipo_movimiento,
+    concepto,
+    monto,
+    saldo_resultante,
+    descripcion,
+    referencia_id,
+    tipo_referencia,
+    forma_pago,
+    usuario_id,
+    observaciones
+  ) VALUES (
+    NOW(),
+    'entrada',
+    CASE NEW.tipo
+      WHEN 'adelanto' THEN 'Adelanto'
+      WHEN 'pago final' THEN 'Pago final'
+      ELSE 'Venta completa'
+    END,
+    NEW.monto,
+    saldo_actual + NEW.monto,
+    NEW.descripcion,
+    NEW.id,
+    'venta',
+    forma_pago_usada,
+    usuario_actual,
+    CONCAT('Venta ID: ', NEW.id, IF(NEW.trabajo_id IS NOT NULL, CONCAT(', Trabajo ID: ', NEW.trabajo_id), ''))
+  );
+END$$
+DELIMITER ;
+*/
+
+-- 4. Trigger para registrar gastos en la tabla caja
+DELIMITER $$
+CREATE TRIGGER after_gasto_insert
+AFTER INSERT ON gastos
+FOR EACH ROW
+BEGIN
+  DECLARE usuario_actual INT;
+  DECLARE saldo_actual DECIMAL(10,2);
+  
+  -- Obtener el último saldo de caja
+  SELECT IFNULL(MAX(saldo_resultante), 0) INTO saldo_actual FROM caja;
+  
+  -- Obtener el usuario actual (predeterminado)
+  SET usuario_actual = 1;
+  
+  -- Registrar el movimiento en la tabla caja
+  INSERT INTO caja (
+    fecha_hora,
+    tipo_movimiento,
+    concepto,
+    monto,
+    saldo_resultante,
+    descripcion,
+    referencia_id,
+    tipo_referencia,
+    forma_pago,
+    usuario_id,
+    observaciones
+  ) VALUES (
+    NOW(),
+    'salida',
+    IFNULL(NEW.categoria, 'Gasto general'),
+    NEW.monto,
+    saldo_actual - NEW.monto,
+    NEW.descripcion,
+    NEW.id,
+    'gasto',
+    'efectivo',
+    usuario_actual,
+    CONCAT('Gasto ID: ', NEW.id, IF(NEW.categoria IS NOT NULL, CONCAT(', Categoría: ', NEW.categoria), ''))
+  );
+END$$
+DELIMITER ;
+
+-- 5. Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
 DELIMITER $$
 CREATE TRIGGER after_cobro_insert_updated
 AFTER INSERT ON cobros
@@ -260,6 +397,86 @@ BEGIN
     UPDATE trabajos
     SET estado = IF(estado = 'proceso', 'terminado', estado)
     WHERE id = NEW.trabajo_id AND estado = 'proceso';
+  END IF;
+END$$
+DELIMITER ;
+
+-- 6. Trigger para registrar movimientos de ENTRADA de caja en la tabla ventas
+DELIMITER $$
+CREATE TRIGGER after_caja_insert_entrada
+AFTER INSERT ON caja
+FOR EACH ROW
+BEGIN
+  -- Verificar que estamos dentro de una transacción para operaciones seguras
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+  BEGIN
+    -- Registrar el error para diagnóstico
+    INSERT INTO log_errores (origen, mensaje, fecha)
+    VALUES ('Trigger after_caja_insert_entrada', 'Error al procesar movimiento de entrada', NOW());
+  END;
+
+  -- Solo procesar si es un movimiento de entrada y no proviene de una venta existente
+  IF NEW.tipo_movimiento = 'entrada' AND NEW.tipo_referencia != 'venta' THEN
+    -- Insertar un registro en la tabla ventas
+    INSERT INTO ventas (
+      fecha,
+      monto,
+      tipo,
+      descripcion,
+      cliente_id
+    ) VALUES (
+      NEW.fecha_hora,
+      NEW.monto,
+      'venta completa',
+      CONCAT('Ingreso de caja: ', IFNULL(NEW.concepto, 'Sin concepto')),
+      NULL
+    );
+    
+    -- Actualizar la referencia en caja para indicar que está vinculado a una venta
+    UPDATE caja
+    SET 
+      referencia_id = LAST_INSERT_ID(),
+      tipo_referencia = 'venta'
+    WHERE id = NEW.id;
+  END IF;
+END$$
+DELIMITER ;
+
+-- 7. Trigger para registrar movimientos de SALIDA de caja en la tabla gastos
+DELIMITER $$
+CREATE TRIGGER after_caja_insert_salida
+AFTER INSERT ON caja
+FOR EACH ROW
+BEGIN
+  -- Verificar que estamos dentro de una transacción para operaciones seguras
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+  BEGIN
+    -- Registrar el error para diagnóstico
+    INSERT INTO log_errores (origen, mensaje, fecha)
+    VALUES ('Trigger after_caja_insert_salida', 'Error al procesar movimiento de salida', NOW());
+  END;
+
+  -- Solo procesar si es un movimiento de salida y no proviene de un gasto existente
+  IF NEW.tipo_movimiento = 'salida' AND NEW.tipo_referencia != 'gasto' THEN
+    -- Insertar un registro en la tabla gastos
+    INSERT INTO gastos (
+      fecha,
+      monto,
+      categoria,
+      descripcion
+    ) VALUES (
+      NEW.fecha_hora,
+      NEW.monto,
+      NEW.concepto,
+      IFNULL(NEW.descripcion, 'Egreso registrado desde caja')
+    );
+    
+    -- Actualizar la referencia en caja para indicar que está vinculado a un gasto
+    UPDATE caja
+    SET 
+      referencia_id = LAST_INSERT_ID(),
+      tipo_referencia = 'gasto'
+    WHERE id = NEW.id;
   END IF;
 END$$
 DELIMITER ;

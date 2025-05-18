@@ -375,6 +375,7 @@
   import { ref, computed, onMounted, watch } from 'vue';
   import { getAllTrabajos, updateTrabajo } from '../services/trabajoService';
   import { useRouter } from 'vue-router';
+  import { getBoliviaDateTime } from '../utils/dateUtils';
   
   // Propiedades
   const props = defineProps({
@@ -744,7 +745,7 @@
       };
       
       // Actualizar fechas según el cambio de estado
-      const fechaActual = new Date().toISOString();
+      const fechaActual = getBoliviaDateTime().toISOString();
       
       // Si pasa a "En Progreso" y no tiene fecha_inicio, la establecemos
       if (nuevoEstado === 'proceso' && !modalCambioEstado.value.trabajo.fecha_inicio) {

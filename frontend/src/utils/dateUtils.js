@@ -19,10 +19,9 @@ export const isBoliviaTimeZone = (date) => {
  * @returns {Date} Objeto Date ajustado a la zona horaria de Bolivia
  */
 export const getBoliviaDateTime = () => {
-  // Obtener la fecha y hora actual en UTC
+  // CORRECCIÓN: La fecha se está guardando con 4 horas de más en la base de datos
+  // Necesitamos restar 4 horas para compensar
   const now = new Date();
-  
-  // Restar 4 horas para convertir a GMT-4 (Bolivia)
   return new Date(now.getTime() - (4 * 60 * 60 * 1000));
 };
 
@@ -42,8 +41,8 @@ export const convertToBoliviaTime = (date) => {
     return fixWeekday(dateObj);
   }
   
-  // Obtener el timestamp y restar 4 horas
-  return new Date(dateObj.getTime() - (4 * 60 * 60 * 1000));
+  // CORRECCIÓN: Necesitamos restar 4 horas para compensar el problema de zona horaria
+  return fixWeekday(new Date(dateObj.getTime() - (4 * 60 * 60 * 1000)));
 };
 
 /**

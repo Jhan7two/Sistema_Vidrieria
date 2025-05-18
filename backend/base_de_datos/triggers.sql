@@ -170,15 +170,11 @@ AFTER INSERT ON gastos -- Se activa después de cada inserción en la tabla gast
 FOR EACH ROW -- Se ejecuta una vez por cada fila insertada
 BEGIN
   -- Variables para almacenar datos necesarios
-  DECLARE forma_pago_usada ENUM('efectivo', 'tarjeta', 'transferencia', 'cheque', 'otro');
   DECLARE usuario_actual INT;
   DECLARE saldo_actual DECIMAL(10,2);
   
   -- Obtener el último saldo de caja
   SELECT IFNULL(MAX(saldo_resultante), 0) INTO saldo_actual FROM caja;
-  
-  -- Determinar forma de pago (predeterminado para gastos)
-  SET forma_pago_usada = 'efectivo'; -- Valor predeterminado
   
   -- Obtener el usuario actual (podría ser el usuario de sesión o un valor predeterminado)
   -- Aquí usamos 1 como ejemplo, pero debería ser el ID del usuario que realiza la operación
@@ -206,12 +202,13 @@ BEGIN
     NEW.descripcion, -- Misma descripción
     NEW.id, -- ID del gasto como referencia
     'gasto', -- Tipo de referencia
-    forma_pago_usada, -- Forma de pago determinada anteriormente
+    'efectivo', -- Forma de pago predeterminada
     usuario_actual, -- Usuario que realiza la operación
     CONCAT('Gasto ID: ', NEW.id, IF(NEW.categoria IS NOT NULL, CONCAT(', Categoría: ', NEW.categoria), ''))
   );
 END$$
 DELIMITER ;
+
 -- Actualizar el trigger de cobros para actualizar automáticamente el monto_pagado y estado_pago
 DELIMITER $$
 CREATE TRIGGER after_cobro_insert_updated
@@ -348,20 +345,18 @@ BEGIN
   END;
 
   -- Solo procesar si es un movimiento de salida y no proviene de un gasto existente
-  IF NEW.tipo_movimiento = 'salida' AND (NEW.tipo_referencia IS NULL OR NEW.tipo_referencia != 'gasto') THEN
+  IF NEW.tipo_movimiento = 'salida' AND NEW.tipo_referencia != 'gasto' THEN
     -- Insertar un registro en la tabla gastos
     INSERT INTO gastos (
       fecha,
       monto,
       categoria,
-      descripcion,
-      forma_pago
+      descripcion
     ) VALUES (
       NEW.fecha_hora, -- Usa la misma fecha del movimiento de caja
       NEW.monto, -- Usa el mismo monto
       NEW.concepto, -- Usa el concepto como categoría
-      IFNULL(NEW.descripcion, 'Egreso registrado desde caja'), -- Descripción o valor predeterminado
-      NEW.forma_pago -- Utiliza la forma de pago registrada en caja
+      IFNULL(NEW.descripcion, 'Egreso registrado desde caja') -- Descripción o valor predeterminado
     );
     
     -- Actualizar la referencia en caja para indicar que está vinculado a un gasto

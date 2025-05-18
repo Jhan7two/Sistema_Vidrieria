@@ -127,7 +127,6 @@ exports.createCobro = async (req, res) => {
     // Crear el cobro
     const datosCobro = {
       trabajo_id,
-      cliente_id: trabajo.cliente_id,
       fecha: new Date(),
       monto: montoNum,
       tipo_pago: formaPagoFinal,
@@ -166,7 +165,7 @@ exports.createCobro = async (req, res) => {
     await Caja.create({
       fecha_hora: new Date(),
       tipo_movimiento: 'entrada',
-      concepto: 'Cobro de trabajo',
+      concepto: 'Cobro',
       monto: montoNum,
       saldo_resultante: nuevoSaldo,
       descripcion: `Cobro de trabajo #${trabajo.id} - ${trabajo.descripcion || 'Sin descripción'}`,
@@ -187,7 +186,6 @@ exports.createCobro = async (req, res) => {
     res.status(201).json({
       id: cobro.id,
       trabajo_id: cobro.trabajo_id,
-      cliente_id: cobro.cliente_id,
       fecha: cobro.fecha,
       monto: cobro.monto,
       tipo_pago: cobro.tipo_pago,
@@ -248,8 +246,7 @@ exports.updateCobro = async (req, res) => {
     await cobro.update({
       monto,
       tipo_pago,
-      observaciones,
-      cliente_id: trabajo.cliente_id
+      observaciones
     }, { transaction });
     
     // Actualizar el trabajo
@@ -309,7 +306,7 @@ exports.updateCobro = async (req, res) => {
       await Caja.create({
         fecha_hora: new Date(),
         tipo_movimiento: 'entrada',
-        concepto: 'Cobro de trabajo',
+        concepto: 'Cobro',
         monto,
         saldo_resultante: nuevoSaldo,
         descripcion: `Cobro de trabajo #${trabajo.id} - ${trabajo.descripcion || 'Sin descripción'}`,
@@ -441,12 +438,7 @@ exports.getCobrosDiarios = async (req, res) => {
     
     console.log('Consultando cobros desde:', fechaInicio, 'hasta:', fechaFin);
     
-    // Importar los modelos requeridos
-    const Cliente = require('../models/cliente');
-    const Trabajo = require('../models/trabajo');
-    
-    // Buscar los cobros del día
-    try {
+    // Consulta básica sin relaciones para evitar errores
     const cobros = await Cobro.findAll({
       where: {
         fecha: {
@@ -454,69 +446,69 @@ exports.getCobrosDiarios = async (req, res) => {
           [Op.lt]: fechaFin
         }
       },
-        include: [
-          {
-            model: Cliente,
-            as: 'cliente',
-            attributes: ['id', 'nombre'],
-            required: false
-          },
-          {
-            model: Trabajo,
-            as: 'trabajo',
-            attributes: ['id', 'descripcion'],
-            required: false
-          }
-        ],
-        order: [['fecha', 'DESC']]
-      });
-      
-      console.log('Cobros encontrados:', cobros.length);
-      
-      // Calcular el total cobrado
-      const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
-      console.log('Total cobrado:', totalCobrado);
-      
-      console.log('=== FIN CONSULTA COBROS DIARIOS ===');
-      
-      // Devolver los resultados
-      res.json({
-        cobros,
+      order: [['fecha', 'DESC']]
+    });
+    
+    console.log('Cobros encontrados:', cobros.length);
+    
+    // Calcular el total cobrado
+    const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
+    console.log('Total cobrado:', totalCobrado);
+    
+    // Obtener información adicional de trabajos y clientes
+    const cobrosConInfo = [];
+    
+    for (const cobro of cobros) {
+      try {
+        // Obtener información del trabajo asociado
+        const trabajo = await Trabajo.findByPk(cobro.trabajo_id);
+        
+        // Obtener información del cliente a través del trabajo
+        let cliente = null;
+        if (trabajo && trabajo.cliente_id) {
+          const Cliente = require('../models/cliente');
+          cliente = await Cliente.findByPk(trabajo.cliente_id);
+        }
+        
+        // Crear objeto con información completa
+        cobrosConInfo.push({
+          ...cobro.toJSON(),
+          trabajo: trabajo ? {
+            id: trabajo.id,
+            descripcion: trabajo.descripcion
+          } : null,
+          cliente: cliente ? {
+            id: cliente.id,
+            nombre: cliente.nombre
+          } : null
+        });
+      } catch (error) {
+        // Si hay error al obtener información adicional, incluir solo el cobro básico
+        console.error(`Error al obtener info adicional para cobro ${cobro.id}:`, error);
+        cobrosConInfo.push(cobro.toJSON());
+      }
+    }
+    
+    console.log('=== FIN CONSULTA COBROS DIARIOS ===');
+    
+    // Devolver los resultados
+    res.json({
+      cobros: cobrosConInfo,
       totalCobrado,
       fecha: fechaInicio
     });
-    } catch (error) {
-      console.error('Error en la consulta de cobros con relaciones:', error);
-      
-      // Si falla con las relaciones, intentar sin ellas
-      console.log('Intentando consulta sin relaciones...');
-      const cobrosSimple = await Cobro.findAll({
-        where: {
-          fecha: {
-            [Op.gte]: fechaInicio,
-            [Op.lt]: fechaFin
-          }
-        },
-        order: [['fecha', 'DESC']]
-      });
-      
-      const totalCobradoSimple = cobrosSimple.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
-      
-      console.log('=== FIN CONSULTA COBROS DIARIOS (MODO SIMPLE) ===');
-      
-      res.json({
-        cobros: cobrosSimple,
-        totalCobrado: totalCobradoSimple,
-        fecha: fechaInicio
-      });
-    }
   } catch (error) {
     console.error('Error al obtener cobros diarios:', error);
-    res.status(500).json({ message: 'Error al obtener cobros diarios', error: error.message });
+    res.status(500).json({ 
+      message: 'Error al obtener cobros diarios', 
+      error: error.message,
+      stack: error.stack
+    });
   }
 };
 
 // Actualizar todos los cobros existentes sin cliente_id
+/*
 exports.updateCobrosCliente = async (req, res) => {
   try {
     console.log('=== INICIO ACTUALIZACIÓN DE COBROS EXISTENTES ===');
@@ -598,3 +590,4 @@ exports.updateCobrosCliente = async (req, res) => {
     throw error;
   }
 };
+*/

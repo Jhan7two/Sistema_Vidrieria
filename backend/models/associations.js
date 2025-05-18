@@ -31,15 +31,16 @@ Cobro.belongsTo(Trabajo, {
 console.log('✅ Trabajo-Cobro: Asociación configurada');
 
 // Relación Cliente-Cobro (Un cliente puede tener muchos cobros)
-Cliente.hasMany(Cobro, {
-  foreignKey: 'cliente_id',
-  as: 'cobros'
-});
-Cobro.belongsTo(Cliente, {
-  foreignKey: 'cliente_id',
-  as: 'cliente'
-});
-console.log('✅ Cliente-Cobro: Asociación configurada');
+// Esta asociación ya no es válida porque el modelo Cobro ya no tiene el campo cliente_id
+// Cliente.hasMany(Cobro, {
+//   foreignKey: 'cliente_id',
+//   as: 'cobros'
+// });
+// Cobro.belongsTo(Cliente, {
+//   foreignKey: 'cliente_id',
+//   as: 'cliente'
+// });
+console.log('✅ Cliente-Cobro: Asociación configurada (indirecta a través de Trabajo)');
 
 // Relación Cliente-Venta (Un cliente puede tener muchas ventas)
 Cliente.hasMany(Venta, {

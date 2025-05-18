@@ -13,5 +13,6 @@ router.get('/stats', authorize('admin', 'vendedor'), ventaController.getDashboar
 
 // Ruta básica
 router.get('/', authorize('admin', 'vendedor'), ventaController.getVentas);
+router.post('/', authorize('admin', 'vendedor'), ventaController.createVenta);
 
 module.exports = router;
