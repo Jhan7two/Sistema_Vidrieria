@@ -9,15 +9,31 @@ exports.getAllTrabajos = async (req, res) => {
     console.log('=== INICIO OBTENER TODOS LOS TRABAJOS ===');
     console.log('Usuario solicitante:', req.user ? req.user.nombre_usuario : 'No autenticado');
     
-    const trabajos = await Trabajo.findAll();
+    const trabajos = await Trabajo.findAll({
+      include: [{
+        model: Cliente,
+        as: 'clienteInfo',
+        attributes: ['id', 'nombre', 'telefono']
+      }],
+      order: [['updated_at', 'DESC']]
+    });
     console.log(`Se encontraron ${trabajos.length} trabajos`);
     
     // Formatear la respuesta para el cliente
     const trabajosFormateados = trabajos.map(trabajo => {
+      // Obtener información del cliente si existe
+      const clienteInfo = trabajo.clienteInfo ? {
+        id: trabajo.clienteInfo.id,
+        nombre: trabajo.clienteInfo.nombre,
+        telefono: trabajo.clienteInfo.telefono
+      } : null;
+      
       // Asegurarse de que los valores numéricos estén como números
       return {
         id: trabajo.id,
         cliente_id: trabajo.cliente_id,
+        cliente: clienteInfo ? clienteInfo.nombre : (trabajo.cliente_id ? `Cliente #${trabajo.cliente_id}` : 'Sin cliente'),
+        clienteInfo: clienteInfo,
         descripcion: trabajo.descripcion,
         tipo: trabajo.tipo,
         fecha_programada: trabajo.fecha_programada,
@@ -28,6 +44,7 @@ exports.getAllTrabajos = async (req, res) => {
         direccion_trabajo: trabajo.direccion_trabajo,
         costo_total: parseFloat(trabajo.costo_total),
         monto_pagado: parseFloat(trabajo.monto_pagado),
+        saldo_pendiente: parseFloat(trabajo.costo_total) - parseFloat(trabajo.monto_pagado),
         estado_pago: trabajo.estado_pago,
         observaciones: trabajo.observaciones,
         created_at: trabajo.created_at,
@@ -148,36 +165,76 @@ exports.buscarTrabajosPorCobrar = async (req, res) => {
     console.log('Término de búsqueda:', termino);
     
     let trabajos = [];
+    let whereCondition = {
+      estado_pago: { [Op.ne]: 'Pagado' }
+    };
     
     // Si no hay término, traer todos los trabajos con saldo pendiente
     if (!termino) {
       trabajos = await Trabajo.findAll({
-        where: {
-          estado_pago: { [Op.ne]: 'Pagado' }
-        },
+        where: whereCondition,
+        include: [{
+          model: Cliente,
+          as: 'clienteInfo',
+          attributes: ['id', 'nombre', 'telefono']
+        }],
         order: [['updated_at', 'DESC']],
         limit: 20
       });
     } else {
       // Buscar por ID si el término es numérico
       if (!isNaN(termino)) {
-        const trabajoPorId = await Trabajo.findByPk(termino);
-        if (trabajoPorId && trabajoPorId.estado_pago !== 'Pagado') {
+        const trabajoPorId = await Trabajo.findOne({
+          where: { 
+            id: termino,
+            estado_pago: { [Op.ne]: 'Pagado' }
+          },
+          include: [{
+            model: Cliente,
+            as: 'clienteInfo',
+            attributes: ['id', 'nombre', 'telefono']
+          }]
+        });
+        
+        if (trabajoPorId) {
           trabajos = [trabajoPorId];
         }
       }
       
       // Si no se encontró por ID o si el término no es numérico
       if (trabajos.length === 0) {
-        // Buscar solo en la descripción para simplificar
+        // Buscar en la descripción y también por nombre de cliente
         trabajos = await Trabajo.findAll({
-          where: {
-            descripcion: { [Op.like]: `%${termino}%` },
-            estado_pago: { [Op.ne]: 'Pagado' }
-          },
+          where: whereCondition,
+          include: [{
+            model: Cliente,
+            as: 'clienteInfo',
+            attributes: ['id', 'nombre', 'telefono'],
+            where: {
+              nombre: { [Op.like]: `%${termino}%` }
+            },
+            required: false
+          }],
           order: [['updated_at', 'DESC']],
           limit: 20
         });
+        
+        // Si no hay resultados buscando por cliente, intentar buscar por descripción
+        if (trabajos.length === 0) {
+          trabajos = await Trabajo.findAll({
+            where: {
+              descripcion: { [Op.like]: `%${termino}%` },
+              estado_pago: { [Op.ne]: 'Pagado' }
+            },
+            include: [{
+              model: Cliente,
+              as: 'clienteInfo',
+              attributes: ['id', 'nombre', 'telefono']
+            }],
+            order: [['updated_at', 'DESC']],
+            limit: 20
+          });
+        }
       }
     }
     
@@ -193,17 +250,28 @@ exports.buscarTrabajosPorCobrar = async (req, res) => {
     console.log('Trabajos con saldo pendiente:', trabajos.length);
     console.log('=== FIN BÚSQUEDA TRABAJOS POR COBRAR ===');
     
-    // Simplificar la respuesta para evitar problemas con la búsqueda de clientes
+    // Formatear la respuesta para el cliente
     const trabajosFormateados = trabajos.map(trabajo => {
+      // Obtener información del cliente si existe
+      const clienteInfo = trabajo.clienteInfo ? {
+        id: trabajo.clienteInfo.id,
+        nombre: trabajo.clienteInfo.nombre,
+        telefono: trabajo.clienteInfo.telefono
+      } : null;
+      
       // Calcular el saldo pendiente
-      const saldoPendiente = parseFloat(trabajo.costo_total) - parseFloat(trabajo.monto_pagado);
+      const costoTotal = parseFloat(trabajo.costo_total);
+      const montoPagado = parseFloat(trabajo.monto_pagado);
+      const saldoPendiente = costoTotal - montoPagado;
       
       return {
         id: trabajo.id,
-        cliente: 'Cliente ID: ' + (trabajo.cliente_id || 'No asignado'),
+        cliente_id: trabajo.cliente_id,
+        cliente: clienteInfo ? clienteInfo.nombre : (trabajo.cliente_id ? `Cliente #${trabajo.cliente_id}` : 'Sin cliente'),
+        clienteInfo: clienteInfo,
         descripcion: trabajo.descripcion,
-        costo_total: parseFloat(trabajo.costo_total),
-        monto_pagado: parseFloat(trabajo.monto_pagado),
+        costo_total: costoTotal,
+        monto_pagado: montoPagado,
         saldo_pendiente: saldoPendiente,
         estado_pago: trabajo.estado_pago
       };

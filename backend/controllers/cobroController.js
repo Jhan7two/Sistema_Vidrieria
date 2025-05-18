@@ -447,18 +447,18 @@ exports.getCobrosDiarios = async (req, res) => {
     
     // Buscar los cobros del día
     try {
-      const cobros = await Cobro.findAll({
-        where: {
-          fecha: {
-            [Op.gte]: fechaInicio,
-            [Op.lt]: fechaFin
-          }
-        },
+    const cobros = await Cobro.findAll({
+      where: {
+        fecha: {
+          [Op.gte]: fechaInicio,
+          [Op.lt]: fechaFin
+        }
+      },
         include: [
           {
             model: Cliente,
             as: 'cliente',
-            attributes: ['id', 'nombre', 'apellido'],
+            attributes: ['id', 'nombre'],
             required: false
           },
           {
@@ -482,9 +482,9 @@ exports.getCobrosDiarios = async (req, res) => {
       // Devolver los resultados
       res.json({
         cobros,
-        totalCobrado,
-        fecha: fechaInicio
-      });
+      totalCobrado,
+      fecha: fechaInicio
+    });
     } catch (error) {
       console.error('Error en la consulta de cobros con relaciones:', error);
       

@@ -49,7 +49,7 @@ export async function createCobro(cobro) {
       delete cobro.metodo_pago;
     }
     
-    const response = await apiClient.post("/cobros", cobro);
+  const response = await apiClient.post("/cobros", cobro);
     console.log("Respuesta del servidor al crear cobro:", response);
     return response;
   } catch (error) {
