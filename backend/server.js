@@ -8,6 +8,9 @@ const helmet = require('helmet');
 const sequelize = require('./config/database');
 const path = require('path');
 
+// Importar el archivo de asociaciones
+require('./models/associations');
+
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');

@@ -30,6 +30,17 @@ Cobro.belongsTo(Trabajo, {
 });
 console.log('✅ Trabajo-Cobro: Asociación configurada');
 
+// Relación Cliente-Cobro (Un cliente puede tener muchos cobros)
+Cliente.hasMany(Cobro, {
+  foreignKey: 'cliente_id',
+  as: 'cobros'
+});
+Cobro.belongsTo(Cliente, {
+  foreignKey: 'cliente_id',
+  as: 'cliente'
+});
+console.log('✅ Cliente-Cobro: Asociación configurada');
+
 // Relación Cliente-Venta (Un cliente puede tener muchas ventas)
 Cliente.hasMany(Venta, {
   foreignKey: 'cliente_id',
@@ -72,5 +83,8 @@ module.exports = {
   Cobro,
   Venta,
   Caja,
-  Gasto
+  Gasto,
+  setupAssociations: () => {
+    console.log('Asociaciones entre modelos establecidas');
+  }
 };

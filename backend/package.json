@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-admin": "node scripts/initAdmin.js"
+    "init-admin": "node scripts/initAdmin.js",
+    "update-cobros": "node scripts/update_cobros_cliente.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

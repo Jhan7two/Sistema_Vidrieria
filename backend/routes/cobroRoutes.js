@@ -19,4 +19,7 @@ router.get('/:id', authorize('admin', 'vendedor'), cobroController.getCobroById)
 router.put('/:id', authorize('admin', 'vendedor'), cobroController.updateCobro);
 router.delete('/:id', authorize('admin'), cobroController.deleteCobro);
 
+// Ruta para actualizar todos los cobros existentes con cliente_id (solo para administradores)
+router.post('/update-clientes', authorize('admin'), cobroController.updateCobrosCliente);
+
 module.exports = router;

@@ -5,8 +5,22 @@ import apiClient from "./api";
  * @returns {Promise} Promise con los datos de los trabajos
  */
 export async function getAllTrabajos() {
-  const response = await apiClient.get("/trabajos");
-  return response.data;
+  try {
+    console.log('Iniciando solicitud para obtener todos los trabajos');
+    const response = await apiClient.get("/trabajos");
+    console.log('Respuesta recibida:', response);
+    return response;
+  } catch (error) {
+    console.error('Error en getAllTrabajos:', error);
+    if (error.response) {
+      console.error('Respuesta de error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No se recibió respuesta del servidor');
+    } else {
+      console.error('Error de configuración:', error.message);
+    }
+    throw error;
+  }
 }
 
 /**

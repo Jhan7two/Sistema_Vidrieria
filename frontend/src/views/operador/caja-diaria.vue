@@ -161,8 +161,9 @@
               <th class="px-4 py-2 text-left">Hora</th>
               <th class="px-4 py-2 text-left">Tipo</th>
               <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Concepto' : 'Trabajo ID' }}</th>
+              <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Monto' : 'Cliente' }}</th>
               <th class="px-4 py-2 text-left">Monto</th>
-              <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Descripción' : 'Método de Pago' }}</th>
+              <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Descripción' : 'Tipo de Pago' }}</th>
               <th v-if="vista === 'cobros'" class="px-4 py-2 text-left">Observaciones</th>
             </tr>
           </thead>
@@ -173,6 +174,7 @@
                 {{ mov.tipo_movimiento || mov.tipo_referencia }}
               </td>
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.concepto : mov.trabajo_id }}</td>
+              <td class="px-4 py-2">{{ vista === 'movimientos' ? formatCurrency(mov.monto) : getNombreCliente(mov) }}</td>
               <td class="px-4 py-2">{{ formatCurrency(mov.monto) }}</td>
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : (mov.metodo_pago || mov.tipo_pago) }}</td>
               <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
@@ -485,6 +487,34 @@ export default {
         case 'Pagado': return 'bg-green-100 text-green-800 px-2 py-1 rounded';
         default: return '';
       }
+    },
+    getNombreCliente(movimiento) {
+      if (!movimiento) return '-';
+      
+      // Si el cobro incluye información del cliente directamente
+      if (movimiento.cliente) {
+        const cliente = movimiento.cliente;
+        return `${cliente.nombre} ${cliente.apellido || ''}`.trim();
+      }
+      
+      // Si solo tenemos el cliente_id, intentar encontrarlo por el trabajo
+      if (movimiento.trabajo && movimiento.trabajo.cliente) {
+        const cliente = movimiento.trabajo.cliente;
+        return `${cliente.nombre} ${cliente.apellido || ''}`.trim();
+      }
+      
+      // Si tenemos solo el cliente_id pero no se cargó la relación
+      if (movimiento.cliente_id) {
+        return `Cliente #${movimiento.cliente_id}`;
+      }
+      
+      // Si tenemos solo el trabajo_id, mostrar esa referencia
+      if (movimiento.trabajo_id) {
+        return `Trabajo #${movimiento.trabajo_id}`;
+      }
+      
+      // Si no tenemos información del cliente
+      return 'No definido';
     }
   }
 }

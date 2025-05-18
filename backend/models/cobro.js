@@ -15,6 +15,14 @@ const Cobro = sequelize.define('Cobro', {
       key: 'id'
     }
   },
+  cliente_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'clientes',
+      key: 'id'
+    }
+  },
   fecha: {
     type: DataTypes.DATEONLY,
     allowNull: false,

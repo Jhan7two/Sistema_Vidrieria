@@ -6,8 +6,37 @@ const sequelize = require('../config/database');
 // Obtener todos los trabajos
 exports.getAllTrabajos = async (req, res) => {
   try {
+    console.log('=== INICIO OBTENER TODOS LOS TRABAJOS ===');
+    console.log('Usuario solicitante:', req.user ? req.user.nombre_usuario : 'No autenticado');
+    
     const trabajos = await Trabajo.findAll();
-    res.json(trabajos);
+    console.log(`Se encontraron ${trabajos.length} trabajos`);
+    
+    // Formatear la respuesta para el cliente
+    const trabajosFormateados = trabajos.map(trabajo => {
+      // Asegurarse de que los valores numéricos estén como números
+      return {
+        id: trabajo.id,
+        cliente_id: trabajo.cliente_id,
+        descripcion: trabajo.descripcion,
+        tipo: trabajo.tipo,
+        fecha_programada: trabajo.fecha_programada,
+        fecha_inicio: trabajo.fecha_inicio,
+        fecha_finalizacion: trabajo.fecha_finalizacion,
+        fecha_entrega: trabajo.fecha_entrega,
+        estado: trabajo.estado,
+        direccion_trabajo: trabajo.direccion_trabajo,
+        costo_total: parseFloat(trabajo.costo_total),
+        monto_pagado: parseFloat(trabajo.monto_pagado),
+        estado_pago: trabajo.estado_pago,
+        observaciones: trabajo.observaciones,
+        created_at: trabajo.created_at,
+        updated_at: trabajo.updated_at
+      };
+    });
+    
+    console.log('=== FIN OBTENER TODOS LOS TRABAJOS ===');
+    res.json(trabajosFormateados);
   } catch (error) {
     console.error('Error al obtener trabajos:', error);
     res.status(500).json({ message: 'Error al obtener trabajos', error: error.message });

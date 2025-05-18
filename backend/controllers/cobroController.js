@@ -127,6 +127,7 @@ exports.createCobro = async (req, res) => {
     // Crear el cobro
     const datosCobro = {
       trabajo_id,
+      cliente_id: trabajo.cliente_id,
       fecha: new Date(),
       monto: montoNum,
       tipo_pago: formaPagoFinal,
@@ -186,6 +187,7 @@ exports.createCobro = async (req, res) => {
     res.status(201).json({
       id: cobro.id,
       trabajo_id: cobro.trabajo_id,
+      cliente_id: cobro.cliente_id,
       fecha: cobro.fecha,
       monto: cobro.monto,
       tipo_pago: cobro.tipo_pago,
@@ -246,7 +248,8 @@ exports.updateCobro = async (req, res) => {
     await cobro.update({
       monto,
       tipo_pago,
-      observaciones
+      observaciones,
+      cliente_id: trabajo.cliente_id
     }, { transaction });
     
     // Actualizar el trabajo
@@ -438,33 +441,160 @@ exports.getCobrosDiarios = async (req, res) => {
     
     console.log('Consultando cobros desde:', fechaInicio, 'hasta:', fechaFin);
     
+    // Importar los modelos requeridos
+    const Cliente = require('../models/cliente');
+    const Trabajo = require('../models/trabajo');
+    
     // Buscar los cobros del día
-    const cobros = await Cobro.findAll({
-      where: {
-        fecha: {
-          [Op.gte]: fechaInicio,
-          [Op.lt]: fechaFin
-        }
-      },
-      order: [['fecha', 'DESC']]
-    });
-    
-    console.log('Cobros encontrados:', cobros.length);
-    
-    // Calcular el total cobrado
-    const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
-    console.log('Total cobrado:', totalCobrado);
-    
-    console.log('=== FIN CONSULTA COBROS DIARIOS ===');
-    
-    // Devolver los resultados
-    res.json({
-      cobros,
-      totalCobrado,
-      fecha: fechaInicio
-    });
+    try {
+      const cobros = await Cobro.findAll({
+        where: {
+          fecha: {
+            [Op.gte]: fechaInicio,
+            [Op.lt]: fechaFin
+          }
+        },
+        include: [
+          {
+            model: Cliente,
+            as: 'cliente',
+            attributes: ['id', 'nombre', 'apellido'],
+            required: false
+          },
+          {
+            model: Trabajo,
+            as: 'trabajo',
+            attributes: ['id', 'descripcion'],
+            required: false
+          }
+        ],
+        order: [['fecha', 'DESC']]
+      });
+      
+      console.log('Cobros encontrados:', cobros.length);
+      
+      // Calcular el total cobrado
+      const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
+      console.log('Total cobrado:', totalCobrado);
+      
+      console.log('=== FIN CONSULTA COBROS DIARIOS ===');
+      
+      // Devolver los resultados
+      res.json({
+        cobros,
+        totalCobrado,
+        fecha: fechaInicio
+      });
+    } catch (error) {
+      console.error('Error en la consulta de cobros con relaciones:', error);
+      
+      // Si falla con las relaciones, intentar sin ellas
+      console.log('Intentando consulta sin relaciones...');
+      const cobrosSimple = await Cobro.findAll({
+        where: {
+          fecha: {
+            [Op.gte]: fechaInicio,
+            [Op.lt]: fechaFin
+          }
+        },
+        order: [['fecha', 'DESC']]
+      });
+      
+      const totalCobradoSimple = cobrosSimple.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
+      
+      console.log('=== FIN CONSULTA COBROS DIARIOS (MODO SIMPLE) ===');
+      
+      res.json({
+        cobros: cobrosSimple,
+        totalCobrado: totalCobradoSimple,
+        fecha: fechaInicio
+      });
+    }
   } catch (error) {
     console.error('Error al obtener cobros diarios:', error);
     res.status(500).json({ message: 'Error al obtener cobros diarios', error: error.message });
+  }
+};
+
+// Actualizar todos los cobros existentes sin cliente_id
+exports.updateCobrosCliente = async (req, res) => {
+  try {
+    console.log('=== INICIO ACTUALIZACIÓN DE COBROS EXISTENTES ===');
+    
+    // Importar el modelo de Trabajo si no está disponible
+    const Trabajo = require('../models/trabajo');
+    
+    // Obtener todos los cobros que no tienen cliente_id
+    const cobros = await Cobro.findAll({
+      where: {
+        cliente_id: null
+      }
+    });
+    
+    console.log(`Se encontraron ${cobros.length} cobros sin cliente_id.`);
+    
+    // Para cada cobro, obtener el trabajo y actualizar el cliente_id
+    let actualizados = 0;
+    let fallidos = 0;
+    
+    for (const cobro of cobros) {
+      try {
+        // Obtener el trabajo asociado al cobro
+        const trabajo = await Trabajo.findByPk(cobro.trabajo_id);
+        
+        if (trabajo && trabajo.cliente_id) {
+          // Actualizar el cobro con el cliente_id del trabajo
+          await cobro.update({
+            cliente_id: trabajo.cliente_id
+          });
+          
+          actualizados++;
+          console.log(`✅ Cobro #${cobro.id} actualizado con cliente_id: ${trabajo.cliente_id}`);
+        } else {
+          console.log(`⚠️ No se pudo actualizar el cobro #${cobro.id}, trabajo no encontrado o sin cliente_id`);
+          fallidos++;
+        }
+      } catch (error) {
+        console.error(`Error al actualizar cobro #${cobro.id}:`, error);
+        fallidos++;
+      }
+    }
+    
+    console.log(`=== FIN ACTUALIZACIÓN DE COBROS EXISTENTES ===`);
+    console.log(`Total de cobros procesados: ${cobros.length}`);
+    console.log(`Cobros actualizados: ${actualizados}`);
+    console.log(`Cobros no actualizados: ${fallidos}`);
+    
+    // Si se llama como API, devolver el resultado
+    if (res) {
+      res.json({
+        success: true,
+        message: 'Actualización de cobros completada',
+        stats: {
+          total: cobros.length,
+          actualizados,
+          fallidos
+        }
+      });
+    }
+    
+    return {
+      total: cobros.length,
+      actualizados,
+      fallidos
+    };
+  } catch (error) {
+    console.error('Error durante la actualización de cobros:', error);
+    
+    // Si se llama como API, devolver el error
+    if (res) {
+      res.status(500).json({
+        success: false,
+        message: 'Error al actualizar cobros con cliente_id',
+        error: error.message
+      });
+    }
+    
+    throw error;
   }
 };

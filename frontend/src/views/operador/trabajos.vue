@@ -5,6 +5,18 @@
       <button :class="vista === 'tabla' ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-l" @click="vista = 'tabla'">Tabla</button>
       <button :class="vista === 'calendario' ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-r" @click="vista = 'calendario'">Calendario</button>
     </div>
+    
+    <!-- Mensaje de error -->
+    <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+      <span class="block sm:inline">{{ error }}</span>
+      <button @click="error = null" class="float-right font-bold">×</button>
+    </div>
+    
+    <!-- Indicador de carga -->
+    <div v-if="cargando" class="bg-blue-100 border border-blue-300 text-blue-700 px-4 py-3 rounded mb-4">
+      <span class="block sm:inline">Cargando datos...</span>
+    </div>
+    
     <!-- Panel de filtros (visible solo en vista tabla) -->
     <div v-if="vista === 'tabla'" class="bg-white rounded shadow p-4 mb-4 flex flex-wrap gap-4 items-end">
       <div>
@@ -59,10 +71,10 @@
           <tbody>
             <tr v-for="trabajo in trabajosPaginados" :key="trabajo.id" class="border-b">
               <td class="px-4 py-2">{{ trabajo.id }}</td>
-              <td class="px-4 py-2">{{ trabajo.fecha_programada }}</td>
-              <td class="px-4 py-2">{{ trabajo.cliente }}</td>
-              <td class="px-4 py-2">{{ trabajo.tipo }}</td>
-              <td class="px-4 py-2">{{ trabajo.direccion_trabajo || trabajo.direccion }}</td>
+              <td class="px-4 py-2">{{ trabajo.fecha_programada || '-' }}</td>
+              <td class="px-4 py-2">{{ trabajo.cliente || (trabajo.cliente_id ? 'Cliente #' + trabajo.cliente_id : 'Sin cliente') }}</td>
+              <td class="px-4 py-2">{{ trabajo.tipo || '-' }}</td>
+              <td class="px-4 py-2">{{ trabajo.direccion_trabajo || trabajo.direccion || '-' }}</td>
               <td class="px-4 py-2">
                 <span :class="estadoClase(trabajo.estado)">{{ trabajo.estado }}</span>
               </td>
@@ -132,35 +144,89 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CalendarioTrabajos from '@/components/CalendarioTrabajos.vue'
+import { getAllTrabajos, updateTrabajo } from '@/services/trabajoService'
 
 const vista = ref('tabla')
 const filtros = ref({ cliente: '', tipo: '', estado: '', fecha: '' })
-const trabajos = ref([
-  // Datos de ejemplo con información financiera actualizada según la nueva estructura
-  { id: 1, fecha_programada: '2024-06-01', cliente: 'Vidrios S.A.', tipo: 'Instalación', direccion_trabajo: 'Calle 123', estado: 'inicio', fecha_finalizacion: null, costo_total: 1200, monto_pagado: 400, saldo_pendiente: 800, estado_pago: 'Parcial' },
-  { id: 2, fecha_programada: '2024-06-03', cliente: 'Cristales SRL', tipo: 'Corte', direccion_trabajo: 'Av. Central 456', estado: 'proceso', fecha_finalizacion: null, costo_total: 900, monto_pagado: 300, saldo_pendiente: 600, estado_pago: 'Parcial' },
-  { id: 3, fecha_programada: '2024-06-05', cliente: 'Pulidos y Más', tipo: 'Pulido', direccion_trabajo: 'Ruta 9 Km 10', estado: 'terminado', fecha_finalizacion: '2024-06-06', costo_total: 1500, monto_pagado: 1500, saldo_pendiente: 0, estado_pago: 'Pagado' },
-  { id: 4, fecha_programada: '2024-06-05', cliente: 'Alfa Glass', tipo: 'Instalación', direccion_trabajo: 'Calle 456', estado: 'inicio', fecha_finalizacion: null, costo_total: 800, monto_pagado: 200, saldo_pendiente: 600, estado_pago: 'Parcial' },
-  { id: 5, fecha_programada: '2024-06-05', cliente: 'Beta Vidrios', tipo: 'Corte', direccion_trabajo: 'Av. Sur 789', estado: 'terminado', fecha_finalizacion: '2024-06-07', costo_total: 700, monto_pagado: 700, saldo_pendiente: 0, estado_pago: 'Pagado' },
-  { id: 6, fecha_programada: '2024-06-05', cliente: 'Gamma Glass', tipo: 'Pulido', direccion_trabajo: 'Ruta 10 Km 5', estado: 'inicio', fecha_finalizacion: null, costo_total: 1100, monto_pagado: 500, saldo_pendiente: 600, estado_pago: 'Parcial' }
-])
+const trabajos = ref([])
 const paginaActual = ref(1)
 const trabajosPorPagina = 5
 const modalEstado = ref({ visible: false, trabajo: null, nuevoEstado: '' })
 const modalNuevoTrabajo = ref(false)
 const mes = ref(new Date().getMonth())
 const anio = ref(new Date().getFullYear())
+const cargando = ref(false)
+const error = ref(null)
+
+// Cargar trabajos al iniciar el componente
+onMounted(async () => {
+  await cargarTrabajos()
+})
+
+// Función para cargar los trabajos desde la API
+async function cargarTrabajos() {
+  try {
+    cargando.value = true
+    error.value = null
+    console.log('Iniciando carga de trabajos')
+    
+    const response = await getAllTrabajos()
+    console.log('Respuesta completa:', response)
+    
+    if (response && Array.isArray(response)) {
+      console.log(`Se recibieron ${response.length} trabajos del servidor`)
+      trabajos.value = response
+      
+      if (response.length === 0) {
+        console.log('No hay trabajos registrados en el sistema')
+      }
+    } else {
+      console.error('Formato de respuesta inválido:', response)
+      error.value = 'La respuesta del servidor no tiene el formato esperado'
+    }
+  } catch (err) {
+    console.error('Error al cargar trabajos:', err)
+    
+    // Determinar el tipo de error para mostrar un mensaje más específico
+    if (err.response) {
+      // Error de respuesta del servidor
+      const status = err.response.status
+      const mensaje = err.response.data?.message || 'Error del servidor'
+      
+      if (status === 401 || status === 403) {
+        error.value = 'No tiene permisos para acceder a esta información'
+      } else {
+        error.value = `Error (${status}): ${mensaje}`
+      }
+    } else if (err.request) {
+      // Error de red - No se recibió respuesta
+      error.value = 'No se pudo conectar con el servidor. Verifique su conexión.'
+    } else {
+      // Error de configuración de la solicitud
+      error.value = `Error al preparar la solicitud: ${err.message}`
+    }
+  } finally {
+    cargando.value = false
+    console.log('Finalizada la carga de trabajos')
+  }
+}
 
 const trabajosFiltrados = computed(() => {
   return trabajos.value.filter(t => {
-    const coincideCliente = !filtros.value.cliente || t.cliente.toLowerCase().includes(filtros.value.cliente.toLowerCase())
-    const coincideTipo = !filtros.value.tipo || t.tipo === filtros.value.tipo
-    const coincideEstado = !filtros.value.estado || t.estado === filtros.value.estado
-    const coincideFecha = !filtros.value.fecha || t.fecha_programada === filtros.value.fecha
-    return coincideCliente && coincideTipo && coincideEstado && coincideFecha
-  })
+    // Verificar que cliente existe y es string antes de usar toLowerCase
+    const clienteNombre = t.cliente || '';
+    const clienteMatch = !filtros.value.cliente || 
+      (typeof clienteNombre === 'string' && clienteNombre.toLowerCase().includes(filtros.value.cliente.toLowerCase()));
+    
+    // Verificar otros campos
+    const tipoMatch = !filtros.value.tipo || t.tipo === filtros.value.tipo;
+    const estadoMatch = !filtros.value.estado || t.estado === filtros.value.estado;
+    const fechaMatch = !filtros.value.fecha || t.fecha_programada === filtros.value.fecha;
+    
+    return clienteMatch && tipoMatch && estadoMatch && fechaMatch;
+  });
 })
 const totalPaginas = computed(() => Math.max(1, Math.ceil(trabajosFiltrados.value.length / trabajosPorPagina)))
 const trabajosPaginados = computed(() => {
@@ -176,6 +242,7 @@ function limpiarFiltros() {
   paginaActual.value = 1
 }
 function estadoClase(estado) {
+  if (!estado) return '';
   switch (estado) {
     case 'inicio': return 'bg-blue-100 text-blue-800 px-2 py-1 rounded'
     case 'proceso': return 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded'
@@ -184,6 +251,7 @@ function estadoClase(estado) {
   }
 }
 function estadoPagoClase(estadoPago) {
+  if (!estadoPago) return '';
   switch (estadoPago) {
     case 'Pendiente': return 'bg-red-100 text-red-800 px-2 py-1 rounded'
     case 'Parcial': return 'bg-orange-100 text-orange-800 px-2 py-1 rounded'
@@ -192,6 +260,11 @@ function estadoPagoClase(estadoPago) {
   }
 }
 function formatCurrency(value) {
+  if (value === null || value === undefined) return '-'
+  if (typeof value === 'string') {
+    value = parseFloat(value)
+    if (isNaN(value)) return '-'
+  }
   if (typeof value !== 'number') return '-'
   return '$' + value.toFixed(2)
 }
@@ -201,10 +274,30 @@ function abrirModalEstado(trabajo) {
 function cerrarModalEstado() {
   modalEstado.value.visible = false
 }
-function confirmarCambioEstado() {
+async function confirmarCambioEstado() {
   if (modalEstado.value.trabajo) {
-    modalEstado.value.trabajo.estado = modalEstado.value.nuevoEstado
-    cerrarModalEstado()
+    try {
+      cargando.value = true
+      error.value = null
+      
+      const trabajo = modalEstado.value.trabajo
+      const nuevoEstado = modalEstado.value.nuevoEstado
+      
+      // Enviar cambio al backend
+      await updateTrabajo(trabajo.id, { estado: nuevoEstado })
+      
+      // Actualizar trabajo en la lista local
+      trabajo.estado = nuevoEstado
+      
+      // Cerrar modal
+      cerrarModalEstado()
+      
+    } catch (err) {
+      console.error('Error al cambiar estado del trabajo:', err)
+      error.value = 'Error al actualizar el estado del trabajo'
+    } finally {
+      cargando.value = false
+    }
   }
 }
 function abrirModalNuevoTrabajo() {
