@@ -193,3 +193,34 @@ exports.changePassword = async (req, res) => {
     });
   }
 };
+
+// Eliminar usuario
+exports.deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Buscar usuario
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    // Eliminar usuario
+    await user.destroy();
+
+    res.status(200).json({
+      success: true,
+      message: 'Usuario eliminado correctamente'
+    });
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al eliminar usuario'
+    });
+  }
+};

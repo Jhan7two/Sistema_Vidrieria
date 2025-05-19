@@ -5,7 +5,8 @@ const {
   getUser,
   createUser,
   updateUser,
-  changePassword
+  changePassword,
+  deleteUser
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
@@ -21,7 +22,8 @@ router.route('/')
 
 router.route('/:id')
   .get(authorize('admin'), getUser)
-  .put(authorize('admin'), updateUser);
+  .put(authorize('admin'), updateUser)
+  .delete(authorize('admin'), deleteUser);
 
 // Ruta para cambiar contraseña (cualquier usuario puede cambiar su propia contraseña)
 router.post('/change-password', changePassword);

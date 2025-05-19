@@ -53,7 +53,7 @@
                       No hay usuarios registrados
                     </td>
                   </tr>
-                  <tr v-for="user in users" :key="user._id" class="hover:bg-gray-50">
+                  <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div class="text-sm font-medium text-gray-900">{{ user.nombre_usuario }}</div>
                     </td>
@@ -62,7 +62,11 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
-                        :class="user.rol === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'">
+                        :class="{
+                          'bg-purple-100 text-purple-800': user.rol === 'admin',
+                          'bg-blue-100 text-blue-800': user.rol === 'vendedor',
+                          'bg-green-100 text-green-800': user.rol === 'operario'
+                        }">
                         {{ user.rol }}
                       </span>
                     </td>
@@ -139,8 +143,8 @@
                       <select id="rol" name="rol" v-model="currentUser.rol"
                         class="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md">
                         <option value="admin">Administrador</option>
-                        <option value="operador">Operador</option>
-                        <option value="usuario">Usuario</option>
+                        <option value="vendedor">Vendedor</option>
+                        <option value="operario">Operario</option>
                       </select>
                     </div>
                   </div>
@@ -230,11 +234,11 @@ const showModal = ref(false)
 const showDeleteConfirm = ref(false)
 const modalMode = ref('create') // 'create' o 'edit'
 const currentUser = reactive({
-  _id: null,
+  id: null,
   nombre_usuario: '',
   nombre_completo: '',
   password: '',
-  rol: 'usuario',
+  rol: 'operario',
   activo: true
 })
 
@@ -248,6 +252,7 @@ const fetchUsers = async () => {
   loading.value = true
   try {
     const response = await userService.getAllUsers()
+    console.log('Datos de usuarios recibidos:', response)
     users.value = response.data
   } catch (err) {
     error.value = 'Error al cargar los usuarios'
@@ -263,17 +268,17 @@ const openModal = (mode, user = null) => {
   if (mode === 'create') {
     // Resetear el formulario para un nuevo usuario
     Object.assign(currentUser, {
-      _id: null,
+      id: null,
       nombre_usuario: '',
       nombre_completo: '',
       password: '',
-      rol: 'usuario',
+      rol: 'operario',
       activo: true
     })
   } else if (mode === 'edit' && user) {
     // Copiar los datos del usuario para edición
     Object.assign(currentUser, {
-      _id: user._id,
+      id: user.id,
       nombre_usuario: user.nombre_usuario,
       nombre_completo: user.nombre_completo,
       password: '', // No mostrar la contraseña actual
@@ -302,7 +307,7 @@ const saveUser = async () => {
         delete userData.password
       }
       
-      response = await userService.updateUser(currentUser._id, userData)
+      response = await userService.updateUser(currentUser.id, userData)
     }
     
     // Actualizar la lista de usuarios
@@ -319,7 +324,7 @@ const saveUser = async () => {
 const confirmDelete = (user) => {
   // Copiar los datos del usuario para confirmar eliminación
   Object.assign(currentUser, {
-    _id: user._id,
+    id: user.id,
     nombre_usuario: user.nombre_usuario,
     nombre_completo: user.nombre_completo
   })
@@ -330,7 +335,7 @@ const confirmDelete = (user) => {
 const deleteUser = async () => {
   try {
     // Llamar al servicio para eliminar usuario
-    await userService.deleteUser(currentUser._id)
+    await userService.deleteUser(currentUser.id)
     
     // Actualizar la lista de usuarios
     await fetchUsers()
