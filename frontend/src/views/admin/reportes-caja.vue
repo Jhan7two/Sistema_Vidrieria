@@ -214,7 +214,7 @@ export default {
     
     getNombreUsuario(usuario) {
       if (!usuario) return '-';
-      return `${usuario.nombre} ${usuario.apellido || ''}`.trim();
+      return usuario.nombre_completo || usuario.nombre_usuario || '-';
     }
   }
 }

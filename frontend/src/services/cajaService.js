@@ -171,24 +171,33 @@ export async function registrarCobroTrabajo(cobro) {
  */
 export async function getHistorialCierres(params = {}) {
   try {
+    // Asegurarse de que los parámetros sean válidos
+    const validParams = {
+      page: params.page ? parseInt(params.page) : 1,
+      limit: params.limit ? parseInt(params.limit) : 10,
+      desde: params.desde || '',
+      hasta: params.hasta || ''
+    };
+    
     // Construir query string
     const queryParams = new URLSearchParams();
     
-    if (params.page) queryParams.append('page', params.page);
-    if (params.limit) queryParams.append('limit', params.limit);
-    if (params.desde) queryParams.append('desde', params.desde);
-    if (params.hasta) queryParams.append('hasta', params.hasta);
+    if (validParams.page) queryParams.append('page', validParams.page);
+    if (validParams.limit) queryParams.append('limit', validParams.limit);
+    if (validParams.desde) queryParams.append('desde', validParams.desde);
+    if (validParams.hasta) queryParams.append('hasta', validParams.hasta);
     
     const queryString = queryParams.toString();
     const url = `/caja/cierres${queryString ? `?${queryString}` : ''}`;
     
-    console.log("Llamando a endpoint:", url);
+    console.log("Llamando a endpoint con parámetros:", url, validParams);
     const response = await apiClient.get(url);
     console.log("Respuesta del historial de cierres:", response);
     
     return response;
   } catch (error) {
     console.error("ERROR en getHistorialCierres:", error);
+    console.error("Detalles del error:", error.response?.data || error.message);
     // Devolvemos un valor predeterminado en caso de error
     return { 
       cierres: [], 

@@ -430,7 +430,22 @@ exports.cerrarCaja = async (req, res) => {
 exports.getHistorialCierres = async (req, res) => {
   try {
     // Parámetros de paginación y filtros
-    const { page = 1, limit = 10, desde, hasta } = req.query;
+    let { page = 1, limit = 10, desde, hasta } = req.query;
+    
+    // Convertir explícitamente page y limit a números enteros
+    try {
+      page = parseInt(page);
+      limit = parseInt(limit);
+      
+      // Validar que sean números válidos
+      if (isNaN(page) || page < 1) page = 1;
+      if (isNaN(limit) || limit < 1) limit = 10;
+    } catch (err) {
+      console.error('Error al parsear parámetros de paginación:', err);
+      page = 1;
+      limit = 10;
+    }
+    
     const offset = (page - 1) * limit;
     
     // Construir condiciones de filtro
@@ -459,7 +474,8 @@ exports.getHistorialCierres = async (req, res) => {
         {
           model: require('../models/user'),
           as: 'usuario',
-          attributes: ['id', 'nombre', 'apellido', 'email']
+          attributes: ['id', 'nombre_completo', 'nombre_usuario'],
+          required: false
         }
       ],
       order: [['fecha', 'DESC']],
@@ -498,6 +514,11 @@ exports.getHistorialCierres = async (req, res) => {
     
   } catch (error) {
     console.error('Error al obtener historial de cierres de caja:', error);
+    console.error('Detalles del error:', JSON.stringify({
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    }));
     res.status(500).json({ 
       message: 'Error al obtener historial de cierres de caja', 
       error: error.message 
