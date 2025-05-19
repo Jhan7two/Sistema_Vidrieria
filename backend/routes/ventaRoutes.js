@@ -1,11 +1,18 @@
 const express = require('express');
-const router = express.Router();
 const ventaController = require('../controllers/ventaController');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 
-// Endpoint para obtener ventas del mes
-router.get('/mes', ventaController.getVentasDelMes);
+const router = express.Router();
 
-// Endpoint para obtener estadísticas generales de ventas
-router.get('/stats', ventaController.getDashboardStats);
+// Proteger todas las rutas
+router.use(protect);
+
+// Rutas específicas
+router.get('/mes', authorize('admin', 'vendedor'), ventaController.getVentasDelMes);
+router.get('/stats', authorize('admin', 'vendedor'), ventaController.getDashboardStats);
+
+// Ruta básica
+router.get('/', authorize('admin', 'vendedor'), ventaController.getVentas);
+router.post('/', authorize('admin', 'vendedor'), ventaController.createVenta);
 
 module.exports = router;

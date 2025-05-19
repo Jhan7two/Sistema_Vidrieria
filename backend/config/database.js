@@ -15,6 +15,19 @@ const sequelize = new Sequelize(
       min: 0,
       acquire: 30000,
       idle: 10000
+    },
+    // Configuración de zona horaria para Bolivia (GMT-4)
+    timezone: '-04:00', // Zona horaria de Bolivia
+    dialectOptions: {
+      // Configuración específica para MySQL
+      timezone: '-04:00', // Zona horaria para las consultas SQL
+      dateStrings: true, // Mantener fechas como strings
+      typeCast: function (field, next) {
+        if (field.type === 'DATETIME' || field.type === 'TIMESTAMP') {
+          return field.string();
+        }
+        return next();
+      }
     }
   }
 );

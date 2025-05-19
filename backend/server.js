@@ -7,32 +7,58 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const sequelize = require('./config/database');
 const path = require('path');
-const ventaRoutes = require('./routes/ventaRoutes');
-const gastoRoutes = require('./routes/gastoRoutes');
+
+// Importar el archivo de asociaciones
+require('./models/associations');
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const ventaRoutes = require('./routes/ventaRoutes');
+const gastoRoutes = require('./routes/gastoRoutes');
+const trabajoRoutes = require('./routes/trabajoRoutes');
+const cobroRoutes = require('./routes/cobroRoutes');
+const cajaRoutes = require('./routes/cajaRoutes');
 
 // Crear la aplicación Express
 const app = express();
 
 // Middleware
-app.use(helmet()); // Seguridad HTTP
+app.use(helmet({ 
+  crossOriginResourcePolicy: { policy: 'cross-origin' } 
+})); // Seguridad HTTP con ajuste para recursos
+
+// Configuración de CORS mejorada
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization']
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(morgan('dev'));
+
+// Middleware para verificar cookies y tokens en cada solicitud
+app.use((req, res, next) => {
+  // Log para depuración
+  if (req.cookies && req.cookies.token) {
+    console.log(`Cookie de sesión presente para: ${req.originalUrl}`);
+  }
+  next();
+});
 
 // Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/gastos', gastoRoutes);
+app.use('/api/trabajos', trabajoRoutes);
+app.use('/api/cobros', cobroRoutes);
+app.use('/api/caja', cajaRoutes);
 
 // Ruta para verificar si el servidor está funcionando
 app.get('/', (req, res) => {

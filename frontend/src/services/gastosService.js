@@ -17,4 +17,23 @@ export async function getDashboardStats() {
   return response.data;
 }
 
+// Función para crear un nuevo gasto
+export async function crearGasto(gasto) {
+  try {
+    // Asegurarse de que el monto sea un número
+    if (gasto.monto && typeof gasto.monto === 'string') {
+      gasto.monto = parseFloat(gasto.monto);
+    }
+    
+    console.log("Datos enviados a /gastos:", gasto);
+    const response = await apiClient.post("/gastos", gasto);
+    console.log("Respuesta del endpoint /gastos:", response);
+    
+    return response;
+  } catch (error) {
+    console.error("ERROR en crearGasto:", error);
+    throw error; // Relanzamos el error para que se maneje en el componente
+  }
+}
+
 // Puedes agregar aquí más funciones relacionadas a gastos en el futuro

@@ -6,8 +6,8 @@ const User = require('../models/user');
 const generateToken = (user) => {
   return jwt.sign(
     { id: user.id, username: user.nombre_usuario, role: user.rol },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '8h' }
+    process.env.JWT_SECRET || 'sistema_vidrieria_secret_key',
+    { expiresIn: process.env.JWT_EXPIRE || '2d' }
   );
 };
 
@@ -24,6 +24,8 @@ exports.login = async (req, res) => {
       });
     }
 
+    console.log(`Intento de inicio de sesión: ${username}`);
+
     // Buscar usuario
     const user = await User.findOne({
       where: {
@@ -33,6 +35,7 @@ exports.login = async (req, res) => {
     });
 
     if (!user) {
+      console.log(`Usuario no encontrado: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -42,6 +45,7 @@ exports.login = async (req, res) => {
     // Verificar contraseña
     const isMatch = await user.validPassword(password);
     if (!isMatch) {
+      console.log(`Contraseña incorrecta para: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -50,6 +54,7 @@ exports.login = async (req, res) => {
 
     // Actualizar último acceso
     await user.update({ ultimo_acceso: new Date() });
+    console.log(`Inicio de sesión exitoso: ${username}`);
 
     // Generar token
     const token = generateToken(user);
@@ -57,26 +62,32 @@ exports.login = async (req, res) => {
     // Opciones para cookie
     const cookieOptions = {
       expires: new Date(
-        Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000 || 30 * 24 * 60 * 60 * 1000
+        Date.now() + (process.env.JWT_COOKIE_EXPIRE || 30) * 24 * 60 * 60 * 1000
       ),
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production'
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
     };
 
     // Enviar token como cookie
     res.cookie('token', token, cookieOptions);
 
+    // También guardar información adicional para fácil acceso desde el cliente
+    const userData = user.toSafeObject();
+    
     // Enviar respuesta
     res.status(200).json({
       success: true,
       token,
-      user: user.toSafeObject()
+      user: userData
     });
   } catch (error) {
     console.error('Error en inicio de sesión:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor'
+      message: 'Error en el servidor',
+      error: error.message
     });
   }
 };
@@ -85,7 +96,9 @@ exports.login = async (req, res) => {
 exports.logout = (req, res) => {
   res.cookie('token', 'none', {
     expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/'
   });
 
   res.status(200).json({
@@ -97,17 +110,41 @@ exports.logout = (req, res) => {
 // Obtener usuario actual
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
-
+    // req.user debería estar disponible gracias al middleware protect
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+    
+    const user = req.user;
+    
+    // Renovar token para mantener la sesión activa
+    const token = generateToken(user);
+    
+    // Configurar cookie con el nuevo token
+    res.cookie('token', token, {
+      expires: new Date(
+        Date.now() + (process.env.JWT_COOKIE_EXPIRE || 30) * 24 * 60 * 60 * 1000
+      ),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
+    });
+    
     res.status(200).json({
       success: true,
-      data: user.toSafeObject()
+      data: user.toSafeObject(),
+      token: token
     });
   } catch (error) {
     console.error('Error al obtener información del usuario:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor'
+      message: 'Error en el servidor',
+      error: error.message
     });
   }
 };

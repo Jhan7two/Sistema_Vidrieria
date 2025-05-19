@@ -5,8 +5,11 @@ const { protect } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+// Rutas públicas (sin autenticación)
 router.post('/login', login);
-router.get('/logout', logout);
+
+// Rutas protegidas (requieren autenticación)
+router.get('/logout', protect, logout);
 router.get('/me', protect, getMe);
 
 module.exports = router;

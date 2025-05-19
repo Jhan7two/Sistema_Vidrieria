@@ -8,8 +8,8 @@
   </div>
   
   <div v-else>
-    <!-- Solo mostrar ventas del mes -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Indicadores clave del dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       <IndividualCard
         title="Ventas (este mes)"
         :value="'$' + dashboardData.salesData.totalMonth.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
@@ -19,6 +19,21 @@
         title="Gastos (este mes)"
         :value="'$' + dashboardData.expensesData.totalMonth.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
         color="red"
+      />
+      <IndividualCard
+        title="Trabajos pendientes"
+        :value="String(trabajosStats.pendientes || 0)"
+        color="amber"
+      />
+      <IndividualCard
+        title="Trabajos en proceso"
+        :value="String(trabajosStats.enProceso || 0)"
+        color="blue"
+      />
+      <IndividualCard
+        title="Trabajos terminados"
+        :value="String(trabajosStats.terminados || 0)"
+        color="green"
       />
     </div>
     <!-- Panel de estadísticas de ventas del mes -->
@@ -99,11 +114,12 @@
 import { ref, onMounted, computed } from 'vue'
 import IndividualCard from '../../components/IndividualCard.vue'
 // import DataTable from '../../components/DataTable.vue'
-import { getVentasDelMes, getGastosDelMes } from "@/services/dashboardService"  // Importar ambas funciones
+import { getVentasDelMes, getGastosDelMes, getTrabajosPorEstado } from "@/services/dashboardService"  // Importar funciones
 
 const loading = ref(true)
 const ventasMes = ref({ ventas: [], totalMes: 0 })
 const gastosMes = ref({ gastos: [], totalMes: 0 })
+const trabajosEstado = ref({ pendientes: 0, enProceso: 0, terminados: 0, total: 0 })
 
 // Cargar ventas del mes
 const loadVentasMes = async () => {
@@ -196,8 +212,38 @@ const dashboardData = computed(() => {
   }
 })
 
+// Cargar trabajos por estado
+const loadTrabajosEstado = async () => {
+  try {
+    const response = await getTrabajosPorEstado()
+    console.log('Respuesta recibida de getTrabajosPorEstado:', response)
+    // Validar estructura de la respuesta
+    const data = response.data || response
+    if (data && typeof data.pendientes === 'number') {
+      trabajosEstado.value = data
+    } else {
+      trabajosEstado.value = { pendientes: 0, enProceso: 0, terminados: 0, total: 0 }
+      console.error('La respuesta de trabajos por estado no tiene la estructura esperada:', response)
+    }
+  } catch (error) {
+    trabajosEstado.value = { pendientes: 0, enProceso: 0, terminados: 0, total: 0 }
+    console.error('Error al cargar trabajos por estado:', error)
+  }
+}
+
+// Estadísticas de trabajos
+const trabajosStats = computed(() => {
+  return {
+    pendientes: trabajosEstado.value.pendientes || 0,
+    enProceso: trabajosEstado.value.enProceso || 0,
+    terminados: trabajosEstado.value.terminados || 0,
+    total: trabajosEstado.value.total || 0
+  }
+})
+
 onMounted(() => {
   loadVentasMes()
   loadGastosMes()
+  loadTrabajosEstado()
 })
 </script>

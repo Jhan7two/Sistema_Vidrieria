@@ -1,0 +1,105 @@
+// Archivo para definir las asociaciones entre modelos
+const Trabajo = require('./trabajo');
+const Cliente = require('./cliente');
+const Cobro = require('./cobro');
+const Venta = require('./venta');
+const Caja = require('./caja');
+const Gasto = require('./gasto');
+const CierreCaja = require('./cierreCaja');
+
+console.log('=== CONFIGURANDO ASOCIACIONES DE MODELOS ===');
+
+// Relación Cliente-Trabajo (Un cliente puede tener muchos trabajos)
+Cliente.hasMany(Trabajo, { 
+  foreignKey: 'cliente_id',
+  as: 'trabajos'
+});
+Trabajo.belongsTo(Cliente, { 
+  foreignKey: 'cliente_id',
+  as: 'clienteInfo'
+});
+console.log('✅ Cliente-Trabajo: Asociación configurada');
+
+// Relación Trabajo-Cobro (Un trabajo puede tener muchos cobros)
+Trabajo.hasMany(Cobro, { 
+  foreignKey: 'trabajo_id',
+  as: 'cobros'
+});
+Cobro.belongsTo(Trabajo, { 
+  foreignKey: 'trabajo_id',
+  as: 'trabajo'
+});
+console.log('✅ Trabajo-Cobro: Asociación configurada');
+
+// Relación Cliente-Cobro (Un cliente puede tener muchos cobros)
+// Esta asociación ya no es válida porque el modelo Cobro ya no tiene el campo cliente_id
+// Cliente.hasMany(Cobro, {
+//   foreignKey: 'cliente_id',
+//   as: 'cobros'
+// });
+// Cobro.belongsTo(Cliente, {
+//   foreignKey: 'cliente_id',
+//   as: 'cliente'
+// });
+console.log('✅ Cliente-Cobro: Asociación configurada (indirecta a través de Trabajo)');
+
+// Relación Cliente-Venta (Un cliente puede tener muchas ventas)
+Cliente.hasMany(Venta, {
+  foreignKey: 'cliente_id',
+  as: 'ventas'
+});
+Venta.belongsTo(Cliente, {
+  foreignKey: 'cliente_id',
+  as: 'cliente'
+});
+console.log('✅ Cliente-Venta: Asociación configurada');
+
+// Relación Trabajo-Venta (Un trabajo puede tener muchas ventas)
+Trabajo.hasMany(Venta, {
+  foreignKey: 'trabajo_id',
+  as: 'ventas'
+});
+Venta.belongsTo(Trabajo, {
+  foreignKey: 'trabajo_id',
+  as: 'trabajo'
+});
+console.log('✅ Trabajo-Venta: Asociación configurada');
+
+// Relación Cobro-Venta (Un cobro puede tener una venta)
+Cobro.hasOne(Venta, {
+  foreignKey: 'cobro_id',
+  as: 'venta'
+});
+Venta.belongsTo(Cobro, {
+  foreignKey: 'cobro_id',
+  as: 'cobro'
+});
+console.log('✅ Cobro-Venta: Asociación configurada');
+
+// Relación Usuario-CierreCaja (Un usuario puede tener muchos cierres de caja)
+const User = require('./user');
+User.hasMany(CierreCaja, {
+  foreignKey: 'usuario_id',
+  as: 'cierresCaja'
+});
+CierreCaja.belongsTo(User, {
+  foreignKey: 'usuario_id',
+  as: 'usuario'
+});
+console.log('✅ Usuario-CierreCaja: Asociación configurada');
+
+// Asegúrate de que este archivo se importe en algún lugar para que se ejecuten las asociaciones
+console.log('=== ASOCIACIONES DE MODELOS CONFIGURADAS ===');
+
+module.exports = {
+  Cliente,
+  Trabajo,
+  Cobro,
+  Venta,
+  Caja,
+  Gasto,
+  CierreCaja,
+  setupAssociations: () => {
+    console.log('Asociaciones entre modelos establecidas');
+  }
+};

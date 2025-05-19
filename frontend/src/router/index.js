@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/auth'
 
 // Layouts
 import AuthLayout from '../layouts/AuthLayout.vue'
+import MainLayout from '../layouts/mainLayout.vue'
 
 // Vistas
 import Login from '../views/auth/Login.vue'
@@ -12,6 +13,8 @@ import ControlPanel from '../views/dashboard/ControlPanel.vue'
 import NotFound from '../views/NotFound.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
+import Trabajos from '../views/operador/trabajos.vue'
+import ReportesCaja from '../views/admin/reportes-caja.vue'
 
 // Rutas
 const routes = [
@@ -36,20 +39,38 @@ const routes = [
     path: '/controlPanel',
     name: 'controlPanel',
     component: ControlPanel,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
+    meta: { requiresAuth: true } // No requiere ser admin
   },
   {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: Dashboard,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
-  },
-  {
-    path: '/cajaDiaria',
-    name: 'cajaDiaria',
-    component: cajaDiaria,
-    meta: { requiresAuth: true} // Añadido requiresAdmin
-    
+    path: '/',
+    component: MainLayout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: Dashboard,
+        meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'operador/caja-diaria',
+        name: 'cajaDiaria',
+        component: cajaDiaria,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'operador/trabajos',
+        name: 'trabajos',
+        component: Trabajos,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'admin/reportes-caja',
+        name: 'reportesCaja',
+        component: ReportesCaja,
+        meta: { requiresAuth: true, requiresAdmin: true }
+      }
+    ]
   },
   {
     path: '/:pathMatch(.*)*',
@@ -70,36 +91,45 @@ const router = createRouter({
 // Protección de rutas
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-  const isLoggedIn = authStore.isAuthenticated
-  const isAdmin = authStore.isAdmin // Obtener el estado de administrador
-
-  // Rutas que requieren rol de admin
-  if (to.meta.requiresAdmin) {
-    if (!isLoggedIn) { // Primero, el usuario debe estar autenticado
-      next({ name: 'login', query: { redirect: to.fullPath } })
-      return
-    }
-    if (!isAdmin) { // Si está autenticado pero no es admin
-      next({ name: 'home' }) // Redirigir a la página de inicio
-      return
-    }
-  }
   
-  // Rutas que requieren autenticación (pero no necesariamente rol de admin)
-  // Este bloque se ejecutará para rutas con `requiresAuth: true` y (`requiresAdmin: false` o `requiresAdmin` no definido)
-  if (to.meta.requiresAuth && !to.meta.requiresAdmin && !isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-    return
+  // Obtener estado de autenticación
+  const isLoggedIn = authStore.isAuthenticated
+  const isAdmin = authStore.isAdmin
+  
+  // Ruta de login
+  const loginRoute = { name: 'login', query: to.path !== '/' ? { redirect: to.fullPath } : {} }
+  
+  // Rutas que requieren estar autenticado
+  if (to.meta.requiresAuth) {
+    // Si el usuario no está autenticado
+    if (!isLoggedIn) {
+      console.log('Acceso denegado: requiere autenticación')
+      next(loginRoute)
+      return
+    }
+    
+    // Si además requiere ser admin
+    if (to.meta.requiresAdmin && !isAdmin) {
+      console.log('Acceso denegado: requiere privilegios de administrador')
+      next({ name: 'controlPanel' })
+      return
+    }
   }
   
   // Rutas que requieren NO estar autenticado (como login)
   if (to.meta.requiresGuest && isLoggedIn) {
-    // Si el usuario está autenticado, redirigir desde páginas como login.
-    // 'controlPanel' es un buen destino; si no es admin, será redirigido a 'home' por el guardia de 'requiresAdmin'.
-    next({ name: 'controlPanel' }) 
+    console.log('Redireccionando: usuario ya autenticado')
+    
+    // Si el usuario está autenticado, redirigir según su rol
+    if (isAdmin) {
+      next({ name: 'dashboard' })
+    } else {
+      next({ name: 'controlPanel' })
+    }
     return
   }
   
+  // En cualquier otro caso, permitir la navegación
   next()
 })
 
