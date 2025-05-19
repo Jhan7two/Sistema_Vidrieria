@@ -17,6 +17,10 @@ class UserService {
   async updateUser(id, userData) {
     return api.put(`/users/${id}`, userData)
   }
+
+  async deleteUser(id) {
+    return api.delete(`/users/${id}`)
+  }
 }
 
 export default new UserService()

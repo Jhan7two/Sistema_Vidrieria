@@ -46,7 +46,7 @@
         </header>
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- Selector de módulos -->
-          <div class="py-4">
+          <div class="py-4" v-if="!activeModule">
             <div class="bg-white shadow overflow-hidden sm:rounded-lg p-6">
               <div class="px-4 py-5 sm:p-6">
                 <h3 class="text-lg leading-6 font-medium text-gray-900">
@@ -73,14 +73,14 @@
                       <span class="text-gray-900 font-medium">Clientes</span>
                     </button>
                     
-                    <button v-if="isAdmin" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
+                    <button v-if="isAdmin" @click="setActiveModule('usuarios')" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
                       <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
                       <span class="text-gray-900 font-medium">Usuarios</span>
                     </button>
                     
-                    <button v-if="isAdmin" @click="mostrarReportesCaja = true" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
+                    <button v-if="isAdmin" @click="setActiveModule('reportesCaja')" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
                       <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
@@ -92,9 +92,21 @@
             </div>
           </div>
           
-          <!-- Componente de Reportes de Caja -->
-          <div v-if="mostrarReportesCaja">
-            <ReportesCaja />
+          <!-- Módulo activo -->
+          <div v-if="activeModule" class="py-4">
+            <!-- Botón para volver al panel principal -->
+            <div class="mb-4">
+              <button @click="closeActiveModule" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Volver al panel
+              </button>
+            </div>
+            
+            <!-- Componentes de módulos -->
+            <ReportesCaja v-if="activeModule === 'reportesCaja'" />
+            <GestionUsuarios v-if="activeModule === 'usuarios'" />
           </div>
         </main>
       </div>
@@ -105,10 +117,11 @@
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore } from '../../store/auth'
   import ReportesCaja from '../../components/ReportesCaja.vue'
+  import GestionUsuarios from '../../components/GestionUsuarios.vue'
   
   // Estado local
   const profileMenuOpen = ref(false)
-  const mostrarReportesCaja = ref(false)
+  const activeModule = ref(null)
   
   // Auth store
   const authStore = useAuthStore()
@@ -129,5 +142,14 @@
   // Función para cerrar sesión
   const logout = () => {
     authStore.logout()
+  }
+
+  // Funciones para gestionar módulos
+  const setActiveModule = (moduleName) => {
+    activeModule.value = moduleName
+  }
+
+  const closeActiveModule = () => {
+    activeModule.value = null
   }
   </script>
