@@ -62,8 +62,8 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
         this.sessionChecked = true
         
-        // Redireccionar al login
-        router.push('/auth/login')
+        // Redireccionar a home después del logout
+        router.push({ name: 'home' })
       }
     },
     
@@ -102,10 +102,8 @@ export const useAuthStore = defineStore('auth', {
           this.user = null
           this.sessionChecked = true
           
-          // Solo redirigir si no estamos ya en la página de login
-          if (router.currentRoute.value.path !== '/auth/login') {
-            router.push('/auth/login')
-          }
+          // Redirigir a home en caso de error de autenticación
+          router.push({ name: 'home' })
         }
         
         this.error = 'Error al cargar información del usuario'

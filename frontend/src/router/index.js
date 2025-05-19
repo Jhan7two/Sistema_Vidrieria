@@ -96,7 +96,11 @@ router.beforeEach((to, from, next) => {
     // Si el usuario no está autenticado
     if (!isLoggedIn) {
       console.log('Acceso denegado: requiere autenticación')
-      next(loginRoute)
+      // Guardar la ruta actual para redirección después del login
+      next({ 
+        name: 'login', 
+        query: { redirect: to.fullPath }
+      })
       return
     }
     
@@ -109,7 +113,6 @@ router.beforeEach((to, from, next) => {
       next({ 
         name: 'login', 
         query: { 
-          ...to.query,
           message: 'Se requiere una cuenta de administrador para acceder a esta sección'
         }
       })
