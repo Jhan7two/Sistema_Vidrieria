@@ -35,22 +35,9 @@ export const useAuthStore = defineStore('auth', {
         this.user = response.user
         this.sessionChecked = true
         
-        // Solo redireccionar después de que el usuario esté autenticado y su rol esté disponible
-        let redirectPath = ''
-        if (router.currentRoute.value.query.redirect) {
-          redirectPath = router.currentRoute.value.query.redirect
-        } else {
-          // Ahora sí, ya tenemos el usuario y su rol
-          if (this.user && this.user.rol === 'admin') {
-            redirectPath = '/dashboard'
-          } else if (this.user && this.user.rol === 'operador') {
-            redirectPath = '/cajaDiaria'
-          } else {
-            redirectPath = '/controlPanel'
-          }
-        }
-        router.push(redirectPath)
-        return response
+        // Retornar true para indicar login exitoso
+        // La redirección se manejará en el componente
+        return true
       } catch (error) {
         this.error = error.response?.data?.message || 'Error al iniciar sesión'
         throw error

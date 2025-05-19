@@ -37,7 +37,7 @@ const routes = [
     path: '/controlPanel',
     name: 'controlPanel',
     component: controlPanel,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/',
@@ -100,10 +100,19 @@ router.beforeEach((to, from, next) => {
       return
     }
     
-    // Si además requiere ser admin
+    // Si requiere ser admin y el usuario no lo es
     if (to.meta.requiresAdmin && !isAdmin) {
       console.log('Acceso denegado: requiere privilegios de administrador')
-      next({ name: 'dashboard' })
+      // Cerrar la sesión actual
+      authStore.logout()
+      // Redirigir al login con un mensaje
+      next({ 
+        name: 'login', 
+        query: { 
+          ...to.query,
+          message: 'Se requiere una cuenta de administrador para acceder a esta sección'
+        }
+      })
       return
     }
   }
@@ -112,9 +121,12 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresGuest && isLoggedIn) {
     console.log('Redireccionando: usuario ya autenticado')
     
-    // Si el usuario está autenticado, redirigir según su rol
+    // Redirigir según el rol del usuario
     if (isAdmin) {
       next({ name: 'dashboard' })
+    } else {
+      // Si es vendedor u otro rol, redirigir a caja-diaria
+      next({ name: 'cajaDiaria' })
     }
     return
   }
