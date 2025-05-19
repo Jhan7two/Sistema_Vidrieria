@@ -127,103 +127,99 @@
   </div>
 </template>
 
-<script>
-import { getHistorialCierres } from '../../services/cajaService';
+<script setup>
+import { ref, onMounted } from 'vue';
+import { getHistorialCierres } from '../services/cajaService';
 
-export default {
-  name: 'ReportesCaja',
-  data() {
-    return {
-      cierres: [],
-      meta: {
-        total: 0,
-        pages: 0,
-        currentPage: 1,
-        totalEntradas: 0,
-        totalSalidas: 0,
-        totalSaldo: 0
-      },
-      filtros: {
-        page: 1,
-        limit: 10,
-        desde: '',
-        hasta: ''
-      },
-      cargando: false,
-      error: null
-    }
-  },
-  mounted() {
-    this.cargarCierres();
-  },
-  methods: {
-    async cargarCierres() {
-      try {
-        this.cargando = true;
-        this.error = null;
-        
-        const response = await getHistorialCierres(this.filtros);
-        
-        this.cierres = response.cierres || [];
-        this.meta = response.meta || {
-          total: 0,
-          pages: 0,
-          currentPage: 1,
-          totalEntradas: 0,
-          totalSalidas: 0,
-          totalSaldo: 0
-        };
-        
-      } catch (error) {
-        console.error("Error al cargar cierres de caja:", error);
-        this.error = "Error al cargar datos. Intente nuevamente.";
-      } finally {
-        this.cargando = false;
-      }
-    },
+// Estado reactivo
+const cierres = ref([]);
+const meta = ref({
+  total: 0,
+  pages: 0,
+  currentPage: 1,
+  totalEntradas: 0,
+  totalSalidas: 0,
+  totalSaldo: 0
+});
+const filtros = ref({
+  page: 1,
+  limit: 10,
+  desde: '',
+  hasta: ''
+});
+const cargando = ref(false);
+const error = ref(null);
+
+// Métodos
+const cargarCierres = async () => {
+  try {
+    cargando.value = true;
+    error.value = null;
     
-    cambiarPagina(pagina) {
-      if (pagina < 1 || pagina > this.meta.pages) return;
-      
-      this.filtros.page = pagina;
-      this.cargarCierres();
-    },
+    const response = await getHistorialCierres(filtros.value);
     
-    limpiarFiltros() {
-      this.filtros = {
-        page: 1,
-        limit: 10,
-        desde: '',
-        hasta: ''
-      };
-      this.cargarCierres();
-    },
+    cierres.value = response.cierres || [];
+    meta.value = response.meta || {
+      total: 0,
+      pages: 0,
+      currentPage: 1,
+      totalEntradas: 0,
+      totalSalidas: 0,
+      totalSaldo: 0
+    };
     
-    formatCurrency(value) {
-      if (typeof value !== 'number') {
-        return value || '-';
-      }
-      return '$' + value.toFixed(2);
-    },
-    
-    formatFecha(fecha) {
-      if (!fecha) return '-';
-      const d = new Date(fecha);
-      return d.toLocaleDateString();
-    },
-    
-    getNombreUsuario(usuario) {
-      if (!usuario) return '-';
-      return usuario.nombre_completo || usuario.nombre_usuario || '-';
-    }
+  } catch (err) {
+    console.error("Error al cargar cierres de caja:", err);
+    error.value = "Error al cargar datos. Intente nuevamente.";
+  } finally {
+    cargando.value = false;
   }
-}
+};
+
+const cambiarPagina = (pagina) => {
+  if (pagina < 1 || pagina > meta.value.pages) return;
+  
+  filtros.value.page = pagina;
+  cargarCierres();
+};
+
+const limpiarFiltros = () => {
+  filtros.value = {
+    page: 1,
+    limit: 10,
+    desde: '',
+    hasta: ''
+  };
+  cargarCierres();
+};
+
+const formatCurrency = (value) => {
+  if (typeof value !== 'number') {
+    return value || '-';
+  }
+  return '$' + value.toFixed(2);
+};
+
+const formatFecha = (fecha) => {
+  if (!fecha) return '-';
+  const d = new Date(fecha);
+  return d.toLocaleDateString();
+};
+
+const getNombreUsuario = (usuario) => {
+  if (!usuario) return '-';
+  return usuario.nombre_completo || usuario.nombre_usuario || '-';
+};
+
+// Cargar datos al montar el componente
+onMounted(() => {
+  cargarCierres();
+});
 </script>
 
 <style scoped>
 .reportes-caja {
   max-width: 1200px;
   margin: 0 auto;
-  min-height: 80vh;
 }
 </style> 

@@ -104,7 +104,6 @@
     // Mostrar Dashboard-jefe solo para administradores
     if (isAdmin.value) {
       items.unshift({ name: 'Dashboard', path: '/dashboard' })
-      items.push({ name: 'Reportes Caja', path: '/admin/reportes-caja' })
     }
     
     return items

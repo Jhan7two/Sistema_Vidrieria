@@ -45,6 +45,7 @@
           <h1 class="text-3xl font-bold text-gray-900">Panel de Control</h1>
         </header>
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <!-- Selector de módulos -->
           <div class="py-4">
             <div class="bg-white shadow overflow-hidden sm:rounded-lg p-6">
               <div class="px-4 py-5 sm:p-6">
@@ -78,10 +79,22 @@
                       </svg>
                       <span class="text-gray-900 font-medium">Usuarios</span>
                     </button>
+                    
+                    <button v-if="isAdmin" @click="mostrarReportesCaja = true" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
+                      <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span class="text-gray-900 font-medium">Reportes de Caja</span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+          
+          <!-- Componente de Reportes de Caja -->
+          <div v-if="mostrarReportesCaja">
+            <ReportesCaja />
           </div>
         </main>
       </div>
@@ -91,9 +104,11 @@
   <script setup>
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore } from '../../store/auth'
+  import ReportesCaja from '../../components/ReportesCaja.vue'
   
   // Estado local
   const profileMenuOpen = ref(false)
+  const mostrarReportesCaja = ref(false)
   
   // Auth store
   const authStore = useAuthStore()

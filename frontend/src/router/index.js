@@ -9,13 +9,11 @@ import MainLayout from '../layouts/mainLayout.vue'
 // Vistas
 import Login from '../views/auth/Login.vue'
 import Home from '../views/Home.vue'
-import ControlPanel from '../views/dashboard/ControlPanel.vue'
 import NotFound from '../views/NotFound.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
-import ReportesCaja from '../views/admin/reportes-caja.vue'
-
+import controlPanel from '../views/dashboard/controlPanel.vue'
 // Rutas
 const routes = [
   {
@@ -38,8 +36,8 @@ const routes = [
   {
     path: '/controlPanel',
     name: 'controlPanel',
-    component: ControlPanel,
-    meta: { requiresAuth: true } // No requiere ser admin
+    component: controlPanel,
+    meta: { requiresAuth: true }
   },
   {
     path: '/',
@@ -64,12 +62,6 @@ const routes = [
         component: Trabajos,
         meta: { requiresAuth: true }
       },
-      {
-        path: 'admin/reportes-caja',
-        name: 'reportesCaja',
-        component: ReportesCaja,
-        meta: { requiresAuth: true, requiresAdmin: true }
-      }
     ]
   },
   {
@@ -111,7 +103,7 @@ router.beforeEach((to, from, next) => {
     // Si además requiere ser admin
     if (to.meta.requiresAdmin && !isAdmin) {
       console.log('Acceso denegado: requiere privilegios de administrador')
-      next({ name: 'controlPanel' })
+      next({ name: 'dashboard' })
       return
     }
   }
@@ -123,8 +115,6 @@ router.beforeEach((to, from, next) => {
     // Si el usuario está autenticado, redirigir según su rol
     if (isAdmin) {
       next({ name: 'dashboard' })
-    } else {
-      next({ name: 'controlPanel' })
     }
     return
   }
