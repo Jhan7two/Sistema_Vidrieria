@@ -19,6 +19,7 @@ const gastoRoutes = require('./routes/gastoRoutes');
 const trabajoRoutes = require('./routes/trabajoRoutes');
 const cobroRoutes = require('./routes/cobroRoutes');
 const cajaRoutes = require('./routes/cajaRoutes');
+const clienteRoutes = require('./routes/clienteRoutes');
 
 // Crear la aplicación Express
 const app = express();
@@ -59,6 +60,7 @@ app.use('/api/gastos', gastoRoutes);
 app.use('/api/trabajos', trabajoRoutes);
 app.use('/api/cobros', cobroRoutes);
 app.use('/api/caja', cajaRoutes);
+app.use('/api/clientes', clienteRoutes);
 
 // Ruta para verificar si el servidor está funcionando
 app.get('/', (req, res) => {

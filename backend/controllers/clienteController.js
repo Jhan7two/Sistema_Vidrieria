@@ -6,7 +6,7 @@ const { Op } = require('sequelize');
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.getAllClientes = async (req, res) => {
+const getClientes = async (req, res) => {
   try {
     const clientes = await Cliente.findAll({
       order: [['nombre', 'ASC']]
@@ -28,7 +28,7 @@ exports.getAllClientes = async (req, res) => {
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.getClienteById = async (req, res) => {
+const getClienteById = async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -57,7 +57,7 @@ exports.getClienteById = async (req, res) => {
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.createCliente = async (req, res) => {
+const crearCliente = async (req, res) => {
   try {
     const { nombre, telefono } = req.body;
     
@@ -91,7 +91,7 @@ exports.createCliente = async (req, res) => {
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.updateCliente = async (req, res) => {
+const updateCliente = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, telefono } = req.body;
@@ -136,7 +136,7 @@ exports.updateCliente = async (req, res) => {
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.deleteCliente = async (req, res) => {
+const deleteCliente = async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -172,11 +172,11 @@ exports.deleteCliente = async (req, res) => {
  * @param {Object} req - Objeto de solicitud Express
  * @param {Object} res - Objeto de respuesta Express
  */
-exports.buscarClientes = async (req, res) => {
+const buscarClientes = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { termino } = req.query;
     
-    if (!q) {
+    if (!termino) {
       return res.status(400).json({
         success: false,
         message: 'Se requiere un término de búsqueda'
@@ -186,8 +186,8 @@ exports.buscarClientes = async (req, res) => {
     const clientes = await Cliente.findAll({
       where: {
         [Op.or]: [
-          { nombre: { [Op.like]: `%${q}%` } },
-          { telefono: { [Op.like]: `%${q}%` } }
+          { nombre: { [Op.like]: `%${termino}%` } },
+          { telefono: { [Op.like]: `%${termino}%` } }
         ]
       },
       order: [['nombre', 'ASC']]
@@ -202,4 +202,13 @@ exports.buscarClientes = async (req, res) => {
       error: error.message 
     });
   }
+};
+
+module.exports = {
+  getClientes,
+  getClienteById,
+  crearCliente,
+  updateCliente,
+  deleteCliente,
+  buscarClientes
 }; 

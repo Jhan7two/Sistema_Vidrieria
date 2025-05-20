@@ -186,27 +186,26 @@
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <p class="text-sm text-gray-500">Fecha Programada</p>
-                  <p class="font-medium">{{ formatDate(modalTrabajo.trabajo.fecha_programada) }}</p>
-                  <p class="text-xs text-gray-500">{{ getHoraFromFecha(modalTrabajo.trabajo.fecha_programada) }}</p>
+                  <p class="font-medium">{{ formatDateTime(modalTrabajo.trabajo.fecha_programada) }}</p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">Fecha de Inicio</p>
                   <p v-if="modalTrabajo.trabajo.fecha_inicio" class="font-medium">
-                    {{ formatDate(modalTrabajo.trabajo.fecha_inicio) }}
+                    {{ formatDateTime(modalTrabajo.trabajo.fecha_inicio) }}
                   </p>
                   <p v-else class="text-sm text-gray-400 italic">No iniciado</p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">Fecha de Finalización</p>
                   <p v-if="modalTrabajo.trabajo.fecha_finalizacion" class="font-medium">
-                    {{ formatDate(modalTrabajo.trabajo.fecha_finalizacion) }}
+                    {{ formatDateTime(modalTrabajo.trabajo.fecha_finalizacion) }}
                   </p>
                   <p v-else class="text-sm text-gray-400 italic">No finalizado</p>
                 </div>
                 <div>
                   <p class="text-sm text-gray-500">Fecha de Entrega</p>
                   <p v-if="modalTrabajo.trabajo.fecha_entrega" class="font-medium">
-                    {{ formatDate(modalTrabajo.trabajo.fecha_entrega) }}
+                    {{ formatDateTime(modalTrabajo.trabajo.fecha_entrega) }}
                   </p>
                   <p v-else class="text-sm text-gray-400 italic">No entregado</p>
                 </div>
@@ -250,6 +249,7 @@
             
             <div class="flex justify-end space-x-3 mt-4">
               <button 
+                v-if="!['terminado', 'entregado'].includes(modalTrabajo.trabajo.estado)"
                 @click="abrirModalCambioEstado(modalTrabajo.trabajo)" 
                 class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 inline-flex items-center"
               >
@@ -258,21 +258,14 @@
                 </svg>
                 Cambiar Estado
               </button>
-              <button v-if="modalTrabajo.trabajo.estado === 'terminado'" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 inline-flex items-center">
+              <button 
+                v-if="modalTrabajo.trabajo.estado === 'terminado'" 
+                class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 inline-flex items-center"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
                 </svg>
                 Comprobante
-              </button>
-              <button 
-                @click="irADetallesCompletos(modalTrabajo.trabajo)" 
-                class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 inline-flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-1">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Ver Completo
               </button>
             </div>
           </div>
@@ -374,7 +367,6 @@
   <script setup>
   import { ref, computed, onMounted, watch } from 'vue';
   import { getAllTrabajos, updateTrabajo } from '../services/trabajoService';
-  import { useRouter } from 'vue-router';
   import { getBoliviaDateTime } from '../utils/dateUtils';
   
   // Propiedades
@@ -458,21 +450,44 @@
       // Procesar los datos para asegurar que las fechas estén en formato correcto
       if (Array.isArray(respuesta)) {
         todosTrabajos.value = respuesta.map(trabajo => {
+          // Log para identificar el trabajo actual
+          console.log('Procesando trabajo ID:', trabajo.id);
+          
+          // Validar todas las fechas del trabajo
+          const fechasAValidar = [
+            'fecha_programada',
+            'fecha_inicio',
+            'fecha_finalizacion',
+            'fecha_entrega'
+          ];
+
+          fechasAValidar.forEach(campoFecha => {
+            if (trabajo[campoFecha]) {
+              try {
+                const fecha = new Date(trabajo[campoFecha]);
+                if (isNaN(fecha.getTime())) {
+                  console.error(`Trabajo ID ${trabajo.id} tiene fecha inválida en ${campoFecha}:`, trabajo[campoFecha]);
+                } else {
+                  console.log(`Trabajo ID ${trabajo.id} - ${campoFecha}:`, fecha.toISOString());
+                }
+              } catch (e) {
+                console.error(`Error al validar fecha ${campoFecha} en trabajo ID ${trabajo.id}:`, e);
+              }
+            }
+          });
+
           // Normalizar la fecha programada para asegurar que sea válida
           if (trabajo.fecha_programada) {
             try {
-              // Intentar parsear la fecha
               const fecha = new Date(trabajo.fecha_programada);
-              
-              // Verificar si la fecha es válida
               if (isNaN(fecha.getTime())) {
-                console.error('Fecha inválida:', trabajo.fecha_programada);
+                console.error('Fecha inválida en trabajo ID', trabajo.id, ':', trabajo.fecha_programada);
                 trabajo.fecha_programada_valida = false;
               } else {
                 trabajo.fecha_programada_valida = true;
               }
             } catch (e) {
-              console.error('Error al parsear fecha:', e);
+              console.error('Error al parsear fecha en trabajo ID', trabajo.id, ':', e);
               trabajo.fecha_programada_valida = false;
             }
           } else {
@@ -627,9 +642,24 @@
   }
   
   function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+    if (!dateString) return '-';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.warn('Fecha inválida recibida:', dateString);
+        return '-';
+      }
+      // Formato más legible: "18 de Mayo de 2025"
+      return new Intl.DateTimeFormat('es-ES', { 
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(date);
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return '-';
+    }
   }
   
   function formatCurrency(amount) {
@@ -660,7 +690,39 @@
   }
   
   function abrirModalTrabajo(trabajo) {
-    modalTrabajo.value = { visible: true, trabajo };
+    if (!trabajo) {
+      console.error('Intento de abrir modal con trabajo nulo');
+      return;
+    }
+
+    // Crear una copia del trabajo para no modificar el original
+    const trabajoValidado = { ...trabajo };
+
+    // Validar y normalizar las fechas
+    const fechasAValidar = [
+      'fecha_programada',
+      'fecha_inicio',
+      'fecha_finalizacion',
+      'fecha_entrega'
+    ];
+
+    fechasAValidar.forEach(campoFecha => {
+      if (trabajoValidado[campoFecha]) {
+        try {
+          const fecha = new Date(trabajoValidado[campoFecha]);
+          if (isNaN(fecha.getTime())) {
+            console.warn(`Fecha inválida en ${campoFecha}:`, trabajoValidado[campoFecha]);
+            trabajoValidado[campoFecha] = null;
+          }
+        } catch (error) {
+          console.error(`Error al validar ${campoFecha}:`, error);
+          trabajoValidado[campoFecha] = null;
+        }
+      }
+    });
+
+    modalTrabajo.value = { visible: true, trabajo: trabajoValidado };
+    
     // Si estaba abierto el modal de lista, lo cerramos
     if (modalListaTrabajos.value.visible) {
       cerrarModalListaTrabajos();
@@ -698,16 +760,53 @@
   }
   
   function getHoraFromFecha(fechaString) {
-    if (!fechaString) return '';
+    if (!fechaString) return '-';
     
     try {
       const fecha = new Date(fechaString);
-      if (isNaN(fecha.getTime())) return ''; // Fecha inválida
+      if (isNaN(fecha.getTime())) {
+        console.warn('Fecha inválida recibida:', fechaString);
+        return '-';
+      }
+      // Formato de hora más legible: "14:30"
+      return fecha.toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      console.error('Error al obtener hora de fecha:', error);
+      return '-';
+    }
+  }
+  
+  // Agregar una nueva función para mostrar fecha y hora juntas
+  function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.warn('Fecha inválida recibida:', dateString);
+        return '-';
+      }
+      // Formato: "18 de Mayo de 2025, 14:30"
+      const fecha = new Intl.DateTimeFormat('es-ES', { 
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(date);
       
-      return fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
-      console.error('Error al obtener hora de fecha:', e);
-      return '';
+      const hora = date.toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false
+      });
+      
+      return `${fecha}, ${hora}`;
+    } catch (error) {
+      console.error('Error al formatear fecha y hora:', error);
+      return '-';
     }
   }
   
@@ -850,19 +949,6 @@
     } else {
       console.warn(`No se encontró el trabajo #${id} en la lista local`);
     }
-  }
-  
-  const router = useRouter();
-  
-  function irADetallesCompletos(trabajo) {
-    cerrarModalTrabajo();
-    router.push({ 
-      name: 'trabajos', 
-      query: { 
-        id: trabajo.id,
-        vista: 'tabla' 
-      } 
-    });
   }
   </script>
   

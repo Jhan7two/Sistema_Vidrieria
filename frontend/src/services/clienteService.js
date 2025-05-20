@@ -86,7 +86,7 @@ export async function deleteCliente(id) {
  */
 export async function buscarClientes(termino) {
   try {
-    const response = await apiClient.get(`/clientes/buscar?q=${encodeURIComponent(termino)}`);
+    const response = await apiClient.get(`/clientes/buscar?termino=${encodeURIComponent(termino)}`);
     return response;
   } catch (error) {
     console.error('Error al buscar clientes:', error);

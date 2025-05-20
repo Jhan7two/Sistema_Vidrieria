@@ -14,10 +14,6 @@ const Cliente = sequelize.define('Cliente', {
   telefono: {
     type: DataTypes.STRING(20),
     allowNull: true
-  },
-  direccion: {
-    type: DataTypes.TEXT,
-    allowNull: true
   }
 }, {
   tableName: 'clientes',

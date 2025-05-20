@@ -1,7 +1,5 @@
 <template>
-  <div class="caja-diaria p-6">
-    <h2 class="text-2xl font-bold mb-4">Caja Diaria</h2>
-    
+  <div class="caja-diaria p-6">    
     <!-- Mensaje de error -->
     <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
       <span class="block sm:inline">{{ error }}</span>
@@ -31,43 +29,58 @@
       <button :class="vista === 'cobros' ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-r" @click="vista = 'cobros'">Cobros de Trabajos</button>
     </div>
     <div v-if="vista === 'movimientos'" class="acciones">
-      <div class="form-ingreso">
-        <h3 class="text-lg font-semibold mb-2">Registrar Ingreso</h3>
-        <form @submit.prevent="registrarMovimiento('entrada')" class="bg-white p-4 rounded shadow">
-          <div class="mb-2">
-            <input v-model="nuevoIngreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model.number="nuevoIngreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model="nuevoIngreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
-            <select v-model="nuevoIngreso.forma_pago" class="border rounded px-3 py-2 w-full mb-2">
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">Registrar Ingreso</button>
-        </form>
+      <div class="form-ingreso rounded-xl shadow-md bg-white/60 backdrop-blur-md">
+        <div class="rounded-t-xl px-6 py-3 mb-4 flex items-center gap-2"
+             style="background: linear-gradient(90deg, #22c55e 80%, #15803d 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4" /></svg>
+          <h3 class="text-lg font-semibold text-white">Registrar Ingreso</h3>
+        </div>
+        <div class="px-6 pb-6">
+          <form @submit.prevent="registrarMovimiento('entrada')" class="">
+            <div class="mb-2">
+              <input v-model="nuevoIngreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
+              <input v-model.number="nuevoIngreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
+              <input v-model="nuevoIngreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
+              <select v-model="nuevoIngreso.forma_pago" class="border rounded px-3 py-2 w-full mb-2">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">Registrar Ingreso</button>
+          </form>
+        </div>
       </div>
-      <div class="form-egreso">
-        <h3 class="text-lg font-semibold mb-2">Registrar Egreso</h3>
-        <form @submit.prevent="registrarMovimiento('salida')" class="bg-white p-4 rounded shadow">
-          <div class="mb-2">
-            <input v-model="nuevoEgreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model.number="nuevoEgreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model="nuevoEgreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
-          </div>
-          <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full">Registrar Egreso</button>
-        </form>
+      <div class="form-egreso rounded-xl shadow-md bg-white/60 backdrop-blur-md">
+        <div class="rounded-t-xl px-6 py-3 mb-4 flex items-center gap-2"
+             style="background: linear-gradient(90deg, #ef4444 80%, #b91c1c 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 13H5v-2h14v2z" /></svg>
+          <h3 class="text-lg font-semibold text-white">Registrar Egreso</h3>
+        </div>
+        <div class="px-6 pb-6">
+          <form @submit.prevent="registrarMovimiento('salida')" class="">
+            <div class="mb-2">
+              <input v-model="nuevoEgreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
+              <input v-model.number="nuevoEgreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
+              <input v-model="nuevoEgreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
+            </div>
+            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full">Registrar Egreso</button>
+          </form>
+        </div>
       </div>
     </div>
     
     <!-- Sección de Cobros de Trabajos -->
     <div v-if="vista === 'cobros'" class="cobros-trabajos mb-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold">Registrar Cobro de Trabajo</h3>
-        <button @click="buscarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Buscar Trabajos</button>
+        <div class="rounded-t-xl px-6 py-3 flex items-center gap-2 w-full"
+             style="background: linear-gradient(90deg, #2563eb 80%, #1e40af 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4" /></svg>
+          <h3 class="text-lg font-semibold text-white flex-1">Registrar Cobro de Trabajo</h3>
+          <button @click="buscarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 ml-4">Buscar Trabajos</button>
+        </div>
       </div>
-      
-      <div v-if="mostrarBusquedaTrabajos" class="bg-white p-4 rounded shadow mb-4">
+      <div v-if="mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-b-xl shadow mb-4">
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1">Buscar por cliente o ID</label>
           <div class="flex gap-2">
@@ -75,7 +88,6 @@
             <button @click="filtrarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Buscar</button>
           </div>
         </div>
-        
         <div v-if="trabajosFiltrados.length > 0" class="overflow-x-auto">
           <table class="min-w-full bg-white">
             <thead>
@@ -112,8 +124,7 @@
           No se encontraron trabajos con esa búsqueda.
         </div>
       </div>
-      
-      <div v-if="trabajoSeleccionado" class="bg-white p-4 rounded shadow mb-4">
+      <div v-if="trabajoSeleccionado" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
         <h4 class="font-semibold mb-2">Registrar cobro para trabajo #{{ trabajoSeleccionado.id }}</h4>
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -126,7 +137,6 @@
             <p><strong>Pendiente:</strong> {{ formatCurrency(trabajoSeleccionado.saldo_pendiente) }}</p>
           </div>
         </div>
-        
         <form @submit.prevent="registrarCobroTrabajo" class="border-t pt-4">
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Monto a cobrar</label>

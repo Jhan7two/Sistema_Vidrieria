@@ -96,7 +96,8 @@
     // Elementos base que todos los usuarios pueden ver
     const baseItems = [
       { name: 'Caja Diaria', path: '/operador/caja-diaria' },
-      { name: 'Trabajos', path: '/operador/trabajos' }
+      { name: 'Trabajos', path: '/operador/trabajos' },
+      { name: 'Cotizaciones', path: '/operador/cotizaciones' }
     ]
     
     // Si es operario, solo puede ver trabajos

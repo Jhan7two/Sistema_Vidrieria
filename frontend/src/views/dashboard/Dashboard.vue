@@ -1,7 +1,5 @@
 <template>
-  <div>
-  <h2 class="text-2xl font-semibold text-gray-700 mb-6">Dashboard</h2>
-  
+  <div>  
   <!-- Mensaje de carga -->
   <div v-if="loading" class="flex justify-center items-center h-64">
     <div class="text-lg text-gray-600">Cargando datos...</div>

@@ -51,6 +51,10 @@ const Trabajo = sequelize.define('Trabajo', {
     type: DataTypes.DECIMAL(10, 2),
     defaultValue: 0.00
   },
+  saldo_pendiente: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0.00
+  },
   estado_pago: {
     type: DataTypes.ENUM('Pendiente', 'Parcial', 'Pagado'),
     defaultValue: 'Pendiente'
