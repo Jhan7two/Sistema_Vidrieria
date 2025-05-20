@@ -78,6 +78,7 @@
   const authStore = useAuthStore()
   const user = computed(() => authStore.currentUser)
   const isAdmin = computed(() => authStore.isAdmin)
+  const isOperario = computed(() => authStore.isOperario)
   
   // Iniciales del usuario (para avatar)
   const userInitials = computed(() => {
@@ -92,21 +93,33 @@
   
   // Elementos de navegación para el usuario
   const navItems = computed(() => {
-    const items = [
+    // Elementos base que todos los usuarios pueden ver
+    const baseItems = [
       { name: 'Caja Diaria', path: '/operador/caja-diaria' },
-     // { name: 'Inventario', path: '/inventario' },
-     // { name: 'Cotizaciones', path: '/cotizaciones' },
-      { name: 'Trabajos', path: '/operador/trabajos' },
-     // { name: 'Clientes', path: '/clientes' },
-     // { name: 'Reportes', path: '/reportes' }
+      { name: 'Trabajos', path: '/operador/trabajos' }
     ]
     
-    // Mostrar Dashboard-jefe solo para administradores
-    if (isAdmin.value) {
-      items.unshift({ name: 'Dashboard', path: '/dashboard' })
+    // Si es operario, solo puede ver trabajos
+    if (isOperario.value) {
+      return [
+        { name: 'Trabajos', path: '/operador/trabajos' }
+      ]
     }
     
-    return items
+    // Si es vendedor, puede ver todo excepto dashboard
+    if (!isAdmin.value && !isOperario.value) {
+      return baseItems
+    }
+    
+    // Si es admin, puede ver todo incluyendo dashboard
+    if (isAdmin.value) {
+      return [
+        { name: 'Dashboard', path: '/dashboard' },
+        ...baseItems
+      ]
+    }
+    
+    return []
   })
   
   // Función para cerrar sesión

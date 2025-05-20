@@ -107,6 +107,8 @@
           // Si no hay ruta de redirección, redirigir según el rol
           if (authStore.isAdmin) {
             router.push({ name: 'dashboard' })
+          } else if (authStore.isOperario) {
+            router.push({ name: 'trabajos' })
           } else {
             router.push({ name: 'cajaDiaria' })
           }
