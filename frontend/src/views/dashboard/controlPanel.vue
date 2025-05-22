@@ -2,7 +2,7 @@
 <template>
     <div>
       <!-- Barra de navegación superior -->
-      <nav class="bg-primary-600 shadow">
+      <nav class="bg-gradient-to-r from-rose-600 to-rose-700 text-white py-2">
         <div class="mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16">
             <div class="flex">
@@ -15,7 +15,7 @@
                 <div>
                   <button @click="profileMenuOpen = !profileMenuOpen" class="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="user-menu" aria-expanded="false">
                     <span class="sr-only">Abrir menú de usuario</span>
-                    <div class="h-8 w-8 rounded-full bg-primary-400 text-white flex items-center justify-center">
+                    <div class="h-8 w-8 rounded-full bg-zinc-700 text-white flex items-center justify-center">
                       {{ userInitials }}
                     </div>
                   </button>
@@ -63,7 +63,7 @@
                       <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <span class="text-gray-900 font-medium">Gestionar Trabajos</span>
+                      <span class="text-gray-900 font-medium">Gestionar ventas y gastos</span>
                     </button>
                     
                     <button class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">

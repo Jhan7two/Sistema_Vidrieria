@@ -85,19 +85,19 @@ CREATE TABLE gastos (
 );
 
 -- Tabla de inventario - Registra los productos y materiales disponibles en el negocio
-CREATE TABLE stock (
-  id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada producto, se incrementa automáticamente
-  nombre_producto VARCHAR(100) NOT NULL, -- Nombre del producto, campo obligatorio, máximo 100 caracteres
-  cantidad INT NOT NULL DEFAULT 0, -- Cantidad disponible del producto, campo obligatorio, valor predeterminado 0
-  unidad VARCHAR(20) NOT NULL, -- Unidad de medida del producto (piezas, metros, litros, etc.), campo obligatorio
-  precio_referencia DECIMAL(10,2), -- Precio de referencia del producto con 2 decimales, campo opcional
-  stock_minimo INT DEFAULT 0, -- Nivel mínimo de stock para alertar de reposición, campo opcional, valor predeterminado 0
-  categoria VARCHAR(50), -- Categoría del producto (materiales, herramientas, etc.), campo opcional
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de creación del registro
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Fecha y hora de última actualización
-  INDEX idx_inventario_nombre (nombre_producto), -- Índice para optimizar búsquedas por nombre de producto
-  INDEX idx_inventario_categoria (categoria) -- Índice para optimizar filtros por categoría de producto
-);
+--CREATE TABLE stock (
+--  id INT AUTO_INCREMENT PRIMARY KEY, -- Identificador único para cada producto, se incrementa automáticamente
+--  nombre_producto VARCHAR(100) NOT NULL, -- Nombre del producto, campo obligatorio, máximo 100 caracteres
+--  cantidad INT NOT NULL DEFAULT 0, -- Cantidad disponible del producto, campo obligatorio, valor predeterminado 0
+--  unidad VARCHAR(20) NOT NULL, -- Unidad de medida del producto (piezas, metros, litros, etc.), campo obligatorio
+--  precio_referencia DECIMAL(10,2), -- Precio de referencia del producto con 2 decimales, campo opcional
+--  stock_minimo INT DEFAULT 0, -- Nivel mínimo de stock para alertar de reposición, campo opcional, valor predeterminado 0
+--  categoria VARCHAR(50), -- Categoría del producto (materiales, herramientas, etc.), campo opcional
+--  created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de creación del registro
+--  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Fecha y hora de última actualización
+--  INDEX idx_inventario_nombre (nombre_producto), -- Índice para optimizar búsquedas por nombre de producto
+--  INDEX idx_inventario_categoria (categoria) -- Índice para optimizar filtros por categoría de producto
+--);
 
 -- Tabla de usuarios - Almacena la información de los usuarios del sistema
 CREATE TABLE usuarios (

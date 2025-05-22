@@ -15,6 +15,7 @@ import cajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
 import controlPanel from '../views/dashboard/controlPanel.vue'
 import Cotizaciones from '../views/operador/cotizaciones.vue'
+import Cotizacion from '../views/operador/cotizacion.vue'
 // Rutas
 const routes = [
   {
@@ -67,6 +68,12 @@ const routes = [
         path: 'operador/cotizaciones',
         name: 'cotizaciones',
         component: Cotizaciones,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'operador/cotizacion',
+        name: 'cotizacion',
+        component: Cotizacion,
         meta: { requiresAuth: true }
       }
     ]

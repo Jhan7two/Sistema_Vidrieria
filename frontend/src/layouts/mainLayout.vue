@@ -1,7 +1,7 @@
 <template>
     <div class="min-h-screen bg-gray-100">
       <!-- Barra de navegación superior -->
-      <header class="bg-primary-600 text-white shadow-md">
+      <header class="bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
             <div class="flex-shrink-0 flex items-center">
@@ -97,13 +97,15 @@
     const baseItems = [
       { name: 'Caja Diaria', path: '/operador/caja-diaria' },
       { name: 'Trabajos', path: '/operador/trabajos' },
-      { name: 'Cotizaciones', path: '/operador/cotizaciones' }
+      { name: 'cotizaciones', path: '/operador/cotizaciones' },
+      { name: 'cotizacion', path: '/operador/cotizacion' }
     ]
     
     // Si es operario, solo puede ver trabajos
     if (isOperario.value) {
       return [
-        { name: 'Trabajos', path: '/operador/trabajos' }
+        { name: 'Trabajos', path: '/operador/trabajos' },
+        { name: 'cotizacion', path: '/operador/cotizacion' }
       ]
     }
     
