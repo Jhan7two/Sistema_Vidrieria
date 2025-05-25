@@ -9,7 +9,7 @@
           @click="setTool(item.id)"
           :class="[
             'p-1.5 rounded transition-colors',
-            props.activeTool === item.id ? 'bg-emerald-100 text-emerald-700' : 'text-gray-500 hover:bg-gray-100'
+            props.activeTool === item.id ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'text-gray-500 hover:bg-gray-100'
           ]"
           :title="item.label"
         >
@@ -19,6 +19,7 @@
           <Circle v-else-if="item.icon === 'circle'" :size="16" />
           <Minus v-else-if="item.icon === 'line'" :size="16" />
           <Type v-else-if="item.icon === 'Type' || item.icon === 'text'" :size="16" />
+          <Move v-else-if="item.icon === 'move'" :size="16" />
         </button>
       </div>
       
@@ -83,18 +84,23 @@
           <span class="text-sm text-gray-600">Modo visualización</span>
         </div>
       </div>
+      
+      <!-- Canvas principal -->
       <canvas
         ref="canvasRef"
+        :key="canvasKey"
         class="w-full h-[400px] cursor-crosshair touch-none"
-        @click="startDrawing"
+        @mousedown="startDrawing"
         @mousemove="draw"
         @mouseup="stopDrawing"
         @mouseleave="stopDrawing"
         @dblclick="deactivateTool"
-        @touchstart.prevent="startDrawing"
-        @touchmove.prevent="draw"
-        @touchend.prevent="stopDrawing"
+        @touchstart.passive="startDrawing"
+        @touchmove.passive="draw"
+        @touchend.passive="stopDrawing"
       />
+      
+      <!-- Text input overlay -->
       <input
         v-if="floatingInput.visible"
         id="canvas-floating-input"
@@ -113,14 +119,16 @@
           color: strokeColor
         }"
         @keydown.enter.prevent="confirmFloatingInput"
+        @keydown.escape.prevent="cancelFloatingInput"
+        placeholder="Escribir medida..."
       />
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, watch, nextTick, computed } from 'vue';
-import { Edit3, Eraser, Square, Circle, Minus, Undo2, Redo2, Type } from 'lucide-vue-next';
+<script setup>
+import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
+import { Edit3, Eraser, Square, Circle, Minus, Undo2, Redo2, Type, Move } from 'lucide-vue-next'
 
 const props = defineProps({
   initialData: {
@@ -135,346 +143,653 @@ const props = defineProps({
     type: String,
     default: 'pencil'
   }
-});
-const emit = defineEmits(['change', 'save', 'update:activeTool']);
+})
 
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-const isDrawing = ref(false);
-const lastPoint = ref<{ x: number, y: number } | null>(null);
+const emit = defineEmits(['change', 'save', 'update:activeTool'])
+
+// Refs principales
+const canvasRef = ref(null)
+const canvasKey = ref(0)
+
+// Estado de dibujo - CORREGIDO
+const isDrawing = ref(false)
+const isDraggingText = ref(false)
+const selectedTextId = ref(null)
+const dragOffset = ref({ x: 0, y: 0 })
+
+// Propiedades de dibujo
+const strokeColor = ref('#000000')
+const strokeWidth = ref(2)
+
+// Datos del canvas
+const canvasData = ref({
+  paths: [],
+  shapes: [],
+  texts: []
+})
+
+// Estado temporal durante el dibujo - CORREGIDO
+const currentPath = ref(null)
+const drawingShape = ref(null)
+
+// Historial para undo/redo
+const canvasHistory = ref([])
+const historyIndex = ref(-1)
+const maxHistorySize = 30
+
+// Input de texto flotante
+const floatingInput = ref({ 
+  x: 0, 
+  y: 0, 
+  value: '', 
+  visible: false 
+})
+
+// Toolbar items
 const toolbarItems = ref([
-  { id: 'pencil', icon: 'pencil', active: true, label: 'Lápiz' },
-  { id: 'line', icon: 'line', active: false, label: 'Línea' },
-  { id: 'rectangle', icon: 'square', active: false, label: 'Rectángulo' },
-  { id: 'circle', icon: 'circle', active: false, label: 'Círculo' },
-  { id: 'eraser', icon: 'eraser', active: false, label: 'Borrador' },
-  { id: 'text', icon: 'Type', active: false, label: 'Texto' }
-]);
-const strokeColor = ref('#000000');
-const strokeWidth = ref(2);
-const paths = ref<{ tool: string, color: string, width: number, points: {x: number, y: number}[] }[]>([]);
-const canvasHistory = ref<{ paths: any[], shapes: any[], texts: any[] }[]>([]);
-const historyIndex = ref(-1);
-const texts = ref<{ x: number, y: number, value: string }[]>([]);
-const floatingInput = ref<{ x: number, y: number, value: string, visible: boolean }>({ x: 0, y: 0, value: '', visible: false });
-const shapes = ref<{ type: string, x: number, y: number, x2: number, y2: number, color: string, width: number }[]>(props.initialData?.metadata?.shapes || []);
-const drawingShape = ref<{ type: string, x: number, y: number, x2: number, y2: number, color: string, width: number } | null>(null);
-const currentPath = ref<{ tool: string, color: string, width: number, points: {x: number, y: number}[] } | null>(null);
+  { id: 'pencil', icon: 'pencil', label: 'Lápiz' },
+  { id: 'line', icon: 'line', label: 'Línea' },
+  { id: 'rectangle', icon: 'square', label: 'Rectángulo' },
+  { id: 'circle', icon: 'circle', label: 'Círculo' },
+  { id: 'text', icon: 'Type', label: 'Texto' },
+  { id: 'move', icon: 'move', label: 'Mover Texto' },
+  { id: 'eraser', icon: 'eraser', label: 'Borrador' }
+])
 
-const initializeCanvas = async () => {
-  await nextTick();
-  if (!canvasRef.value) return;
+// Computed properties
+const canUndo = computed(() => historyIndex.value > 0)
+const canRedo = computed(() => historyIndex.value < canvasHistory.value.length - 1)
 
-  const canvas = canvasRef.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+// FUNCIONES DE HISTORIAL
+const saveToHistory = () => {
+  const currentState = JSON.parse(JSON.stringify(canvasData.value))
   
-  // Configurar canvas con dimensiones reales para mejor calidad
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
+  if (historyIndex.value < canvasHistory.value.length - 1) {
+    canvasHistory.value = canvasHistory.value.slice(0, historyIndex.value + 1)
+  }
   
-  // Limpiar canvas
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  canvasHistory.value.push(currentState)
   
-  texts.value = (props.initialData?.metadata?.texts) || [];
-  
-  // Cargar datos iniciales si existen
-  if (props.initialData && props.initialData.drawing) {
-    const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      drawTexts(ctx);
-      saveToHistory();
-    };
-    img.src = props.initialData.drawing;
-    img.crossOrigin = "anonymous";
+  if (canvasHistory.value.length > maxHistorySize) {
+    canvasHistory.value.shift()
   } else {
-    drawTexts(ctx);
-    saveToHistory();
-  }
-};
-
-function saveToHistory() {
-  if (historyIndex.value < canvasHistory.value.length - 1) {
-    canvasHistory.value = canvasHistory.value.slice(0, historyIndex.value + 1);
-  }
-  canvasHistory.value.push({
-    paths: JSON.parse(JSON.stringify(paths.value)),
-    shapes: JSON.parse(JSON.stringify(shapes.value)),
-    texts: JSON.parse(JSON.stringify(texts.value))
-  });
-  historyIndex.value = canvasHistory.value.length - 1;
-}
-
-function undo() {
-  if (historyIndex.value > 0) {
-    historyIndex.value--;
-    loadFromHistory();
+    historyIndex.value++
   }
 }
 
-function redo() {
-  if (historyIndex.value < canvasHistory.value.length - 1) {
-    historyIndex.value++;
-    loadFromHistory();
+const undo = () => {
+  if (!canUndo.value) return
+  
+  historyIndex.value--
+  loadFromHistory()
+}
+
+const redo = () => {
+  if (!canRedo.value) return
+  
+  historyIndex.value++
+  loadFromHistory()
+}
+
+const loadFromHistory = () => {
+  const state = canvasHistory.value[historyIndex.value]
+  if (!state) return
+  
+  canvasData.value = JSON.parse(JSON.stringify(state))
+  redrawMainCanvas()
+  debouncedNotifyChange()
+}
+
+// INICIALIZACIÓN DEL CANVAS
+const initializeCanvas = async () => {
+  await nextTick()
+  if (!canvasRef.value) return
+
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  const rect = canvas.getBoundingClientRect()
+  
+  canvas.width = rect.width
+  canvas.height = rect.height
+  
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.imageSmoothingEnabled = true
+  
+  resetCanvasState()
+  
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  if (props.initialData && props.initialData.drawing) {
+    loadInitialData()
+  } else {
+    redrawMainCanvas()
+    saveToHistory()
   }
 }
 
-function loadFromHistory() {
-  const entry = canvasHistory.value[historyIndex.value];
-  if (!entry) return;
-  paths.value = JSON.parse(JSON.stringify(entry.paths));
-  shapes.value = JSON.parse(JSON.stringify(entry.shapes));
-  texts.value = JSON.parse(JSON.stringify(entry.texts));
-  redrawCanvas();
-  notifyChange();
+const resetCanvasState = () => {
+  canvasData.value = {
+    paths: [],
+    shapes: [],
+    texts: []
+  }
+  
+  // IMPORTANTE: Resetear completamente el estado temporal
+  currentPath.value = null
+  drawingShape.value = null
+  selectedTextId.value = null
+  isDraggingText.value = false
+  isDrawing.value = false
+  
+  canvasHistory.value = []
+  historyIndex.value = -1
 }
 
-const startDrawing = (e: MouseEvent | TouchEvent) => {
-  if (!props.isEditMode) return;
-  const rect = canvasRef.value!.getBoundingClientRect();
-  let clientX = 0, clientY = 0;
+const loadInitialData = () => {
+  if (!props.initialData) return
+  
+  if (props.initialData.metadata) {
+    canvasData.value = {
+      paths: props.initialData.metadata.paths || [],
+      shapes: props.initialData.metadata.shapes || [],
+      texts: props.initialData.metadata.texts || []
+    }
+  }
+  
+  if (props.initialData.drawing) {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = canvasRef.value
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      
+      if (props.initialData.drawing && !props.initialData.metadata) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      }
+      
+      redrawMainCanvas()
+      saveToHistory()
+    }
+    img.crossOrigin = "anonymous"
+    img.src = props.initialData.drawing
+  } else {
+    redrawMainCanvas()
+    saveToHistory()
+  }
+}
+
+// FUNCIONES DE DIBUJO
+const redrawMainCanvas = () => {
+  if (!canvasRef.value) return
+  
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  drawPaths(ctx)
+  drawShapes(ctx)
+  drawTexts(ctx)
+  
+  // Si hay un trazo actual en progreso, dibujarlo también
+  if (currentPath.value && currentPath.value.points.length > 0) {
+    drawCurrentPath(ctx)
+  }
+}
+
+const drawPaths = (ctx) => {
+  canvasData.value.paths.forEach(path => {
+    if (path.points.length < 2) return
+    
+    ctx.save()
+    
+    if (path.tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)'
+      ctx.lineWidth = path.width * 3
+    } else {
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.strokeStyle = path.color
+      ctx.lineWidth = path.width
+    }
+    
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    
+    ctx.beginPath()
+    ctx.moveTo(path.points[0].x, path.points[0].y)
+    for (let i = 1; i < path.points.length; i++) {
+      ctx.lineTo(path.points[i].x, path.points[i].y)
+    }
+    ctx.stroke()
+    ctx.restore()
+  })
+}
+
+// NUEVA FUNCIÓN: Dibujar el trazo actual en progreso
+const drawCurrentPath = (ctx) => {
+  if (!currentPath.value || currentPath.value.points.length === 0) return
+  
+  ctx.save()
+  
+  if (currentPath.value.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.strokeStyle = 'rgba(0,0,0,1)'
+    ctx.lineWidth = currentPath.value.width * 3
+  } else {
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.strokeStyle = currentPath.value.color
+    ctx.lineWidth = currentPath.value.width
+  }
+  
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  
+  if (currentPath.value.points.length === 1) {
+    // Para un solo punto, dibujar un círculo
+    const point = currentPath.value.points[0]
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, currentPath.value.width / 2, 0, 2 * Math.PI)
+    ctx.fill()
+  } else {
+    // Para múltiples puntos, dibujar línea
+    ctx.beginPath()
+    ctx.moveTo(currentPath.value.points[0].x, currentPath.value.points[0].y)
+    for (let i = 1; i < currentPath.value.points.length; i++) {
+      ctx.lineTo(currentPath.value.points[i].x, currentPath.value.points[i].y)
+    }
+    ctx.stroke()
+  }
+  
+  ctx.restore()
+}
+
+const drawShapes = (ctx) => {
+  canvasData.value.shapes.forEach(shape => {
+    ctx.save()
+    ctx.strokeStyle = shape.color
+    ctx.lineWidth = shape.width
+    
+    if (shape.type === 'rectangle') {
+      ctx.strokeRect(shape.x, shape.y, shape.x2 - shape.x, shape.y2 - shape.y)
+    } else if (shape.type === 'circle') {
+      const centerX = (shape.x + shape.x2) / 2
+      const centerY = (shape.y + shape.y2) / 2
+      const radiusX = Math.abs((shape.x2 - shape.x) / 2)
+      const radiusY = Math.abs((shape.y2 - shape.y) / 2)
+      
+      ctx.beginPath()
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI)
+      ctx.stroke()
+    } else if (shape.type === 'line') {
+      ctx.beginPath()
+      ctx.moveTo(shape.x, shape.y)
+      ctx.lineTo(shape.x2, shape.y2)
+      ctx.stroke()
+    }
+    ctx.restore()
+  })
+}
+
+const drawTexts = (ctx) => {
+  ctx.save()
+  
+  canvasData.value.texts.forEach(text => {
+    ctx.font = `${text.fontSize || 20}px Arial`
+    ctx.fillStyle = text.color
+    ctx.fillText(text.value, text.x, text.y)
+    
+    if (text.isSelected) {
+      const metrics = ctx.measureText(text.value)
+      const textHeight = text.fontSize || 20
+      
+      ctx.strokeStyle = '#0066cc'
+      ctx.lineWidth = 1
+      ctx.setLineDash([5, 5])
+      ctx.strokeRect(text.x - 2, text.y - textHeight, metrics.width + 4, textHeight + 4)
+      ctx.setLineDash([])
+    }
+  })
+  
+  ctx.restore()
+}
+
+// EVENTOS DE DIBUJO - CORREGIDOS
+const getEventPosition = (e) => {
+  const rect = canvasRef.value.getBoundingClientRect()
+  let clientX = 0, clientY = 0
+  
   if (e instanceof MouseEvent) {
-    clientX = e.clientX;
-    clientY = e.clientY;
+    clientX = e.clientX
+    clientY = e.clientY
   } else if (e.touches && e.touches.length > 0) {
-    clientX = e.touches[0].clientX;
-    clientY = e.touches[0].clientY;
+    clientX = e.touches[0].clientX
+    clientY = e.touches[0].clientY
   }
+  
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  }
+}
+
+const startDrawing = (e) => {
+  if (!props.isEditMode) return
+  
+  const pos = getEventPosition(e)
+
   if (props.activeTool === 'text') {
     floatingInput.value = {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
+      x: pos.x,
+      y: pos.y,
       value: '',
       visible: true
-    };
+    }
     nextTick(() => {
-      const input = document.getElementById('canvas-floating-input') as HTMLInputElement;
-      if (input) input.focus();
-    });
-    return;
+      const input = document.getElementById('canvas-floating-input')
+      if (input) input.focus()
+    })
+    return
   }
+
+  if (props.activeTool === 'move') {
+    const textAtPos = findTextAtPosition(pos)
+    if (textAtPos) {
+      selectText(textAtPos.id)
+      isDraggingText.value = true
+      dragOffset.value = {
+        x: pos.x - textAtPos.x,
+        y: pos.y - textAtPos.y
+      }
+    } else {
+      selectText(null)
+    }
+    redrawMainCanvas()
+    return
+  }
+
   if (["rectangle", "circle", "line"].includes(props.activeTool)) {
-    isDrawing.value = true;
+    isDrawing.value = true
     drawingShape.value = {
       type: props.activeTool,
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-      x2: clientX - rect.left,
-      y2: clientY - rect.top,
+      x: pos.x,
+      y: pos.y,
+      x2: pos.x,
+      y2: pos.y,
       color: strokeColor.value,
-      width: strokeWidth.value
-    };
-    return;
+      width: parseInt(strokeWidth.value)
+    }
+    return
   }
+
+  // LÁPIZ Y BORRADOR - CORREGIDO
   if (props.activeTool === 'pencil' || props.activeTool === 'eraser') {
-    isDrawing.value = true;
+    isDrawing.value = true
+    
+    // Crear nuevo trazo temporal
     currentPath.value = {
       tool: props.activeTool,
       color: strokeColor.value,
-      width: strokeWidth.value,
-      points: [{ x: clientX - rect.left, y: clientY - rect.top }]
-    };
-    paths.value.push(currentPath.value);
-    redrawCanvas();
-    return;
+      width: parseInt(strokeWidth.value),
+      points: [pos]
+    }
+    
+    // Redibujar inmediatamente para mostrar el primer punto
+    redrawMainCanvas()
+    return
   }
-};
+}
 
-const draw = (e: MouseEvent | TouchEvent) => {
-  if (!isDrawing.value || !props.isEditMode || !canvasRef.value) return;
-  const rect = canvasRef.value.getBoundingClientRect();
-  let clientX = 0, clientY = 0;
-  if (e instanceof MouseEvent) {
-    clientX = e.clientX;
-    clientY = e.clientY;
-  } else if (e.touches && e.touches.length > 0) {
-    clientX = e.touches[0].clientX;
-    clientY = e.touches[0].clientY;
+const draw = (e) => {
+  if (!props.isEditMode) return
+  
+  const pos = getEventPosition(e)
+
+  if (isDraggingText.value && selectedTextId.value) {
+    const textIndex = canvasData.value.texts.findIndex(t => t.id === selectedTextId.value)
+    if (textIndex !== -1) {
+      canvasData.value.texts[textIndex].x = pos.x - dragOffset.value.x
+      canvasData.value.texts[textIndex].y = pos.y - dragOffset.value.y
+      redrawMainCanvas()
+    }
+    return
   }
-  const currentPoint = {
-    x: clientX - rect.left,
-    y: clientY - rect.top
-  };
+
+  if (!isDrawing.value) return
+
   if (["rectangle", "circle", "line"].includes(props.activeTool) && drawingShape.value) {
-    drawingShape.value.x2 = currentPoint.x;
-    drawingShape.value.y2 = currentPoint.y;
-    redrawCanvas(true); // true = preview
-    return;
+    drawingShape.value.x2 = pos.x
+    drawingShape.value.y2 = pos.y
+    
+    redrawMainCanvas()
+    drawTemporaryShape()
+    return
   }
-  if ((props.activeTool === 'pencil' || props.activeTool === 'eraser') && isDrawing.value && currentPath.value) {
-    currentPath.value.points.push(currentPoint);
-    redrawCanvas();
-    return;
+
+  // LÁPIZ Y BORRADOR - CORREGIDO
+  if ((props.activeTool === 'pencil' || props.activeTool === 'eraser') && currentPath.value) {
+    // Agregar punto al trazo actual
+    currentPath.value.points.push(pos)
+    
+    // Redibujar canvas con el trazo en progreso
+    redrawMainCanvas()
+    return
   }
-};
+}
 
 const stopDrawing = () => {
-  if (!props.isEditMode) return;
+  if (!props.isEditMode) return
+
+  if (isDraggingText.value) {
+    isDraggingText.value = false
+    saveToHistory()
+    debouncedNotifyChange()
+    return
+  }
+
   if (["rectangle", "circle", "line"].includes(props.activeTool) && drawingShape.value) {
-    shapes.value.push({ ...drawingShape.value });
-    drawingShape.value = null;
-    isDrawing.value = false;
-    saveToHistory();
-    notifyChange();
-    redrawCanvas();
-    emit('update:activeTool', null);
-    return;
+    canvasData.value.shapes.push({ ...drawingShape.value })
+    drawingShape.value = null
+    isDrawing.value = false
+    
+    redrawMainCanvas()
+    saveToHistory()
+    debouncedNotifyChange()
+    emit('update:activeTool', 'pencil')
+    return
   }
-  if (isDrawing.value && (props.activeTool === 'pencil' || props.activeTool === 'eraser')) {
-    isDrawing.value = false;
-    currentPath.value = null;
-    saveToHistory();
-    notifyChange();
-  }
-};
 
+  // LÁPIZ Y BORRADOR - CORREGIDO
+  if (isDrawing.value && (props.activeTool === 'pencil' || props.activeTool === 'eraser') && currentPath.value) {
+    // Agregar el trazo completado a los datos permanentes
+    canvasData.value.paths.push({ ...currentPath.value })
+    
+    // Limpiar estado temporal
+    currentPath.value = null
+    isDrawing.value = false
+    
+    // Redibujar y guardar
+    redrawMainCanvas()
+    saveToHistory()
+    debouncedNotifyChange()
+  }
+}
+
+const drawTemporaryShape = () => {
+  if (!canvasRef.value || !drawingShape.value) return
+  
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.save()
+  ctx.strokeStyle = drawingShape.value.color
+  ctx.lineWidth = drawingShape.value.width
+  ctx.setLineDash([5, 5])
+  
+  const shape = drawingShape.value
+  
+  if (shape.type === 'rectangle') {
+    ctx.strokeRect(shape.x, shape.y, shape.x2 - shape.x, shape.y2 - shape.y)
+  } else if (shape.type === 'circle') {
+    const centerX = (shape.x + shape.x2) / 2
+    const centerY = (shape.y + shape.y2) / 2
+    const radiusX = Math.abs((shape.x2 - shape.x) / 2)
+    const radiusY = Math.abs((shape.y2 - shape.y) / 2)
+    
+    ctx.beginPath()
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI)
+    ctx.stroke()
+  } else if (shape.type === 'line') {
+    ctx.beginPath()
+    ctx.moveTo(shape.x, shape.y)
+    ctx.lineTo(shape.x2, shape.y2)
+    ctx.stroke()
+  }
+  
+  ctx.restore()
+}
+
+// FUNCIONES DE TEXTO
+const findTextAtPosition = (pos) => {
+  if (!canvasRef.value) return null
+  
+  const ctx = canvasRef.value.getContext('2d')
+  if (!ctx) return null
+
+  for (let i = canvasData.value.texts.length - 1; i >= 0; i--) {
+    const text = canvasData.value.texts[i]
+    ctx.font = `${text.fontSize || 20}px Arial`
+    const metrics = ctx.measureText(text.value)
+    const textHeight = text.fontSize || 20
+
+    if (pos.x >= text.x && 
+        pos.x <= text.x + metrics.width && 
+        pos.y >= text.y - textHeight && 
+        pos.y <= text.y) {
+      return text
+    }
+  }
+  return null
+}
+
+const selectText = (textId) => {
+  canvasData.value.texts = canvasData.value.texts.map(text => ({
+    ...text,
+    isSelected: text.id === textId
+  }))
+  selectedTextId.value = textId
+}
+
+const confirmFloatingInput = () => {
+  if (floatingInput.value.visible && floatingInput.value.value.trim() !== '') {
+    const newText = {
+      id: Date.now().toString(),
+      x: floatingInput.value.x,
+      y: floatingInput.value.y + 20,
+      value: floatingInput.value.value,
+      color: strokeColor.value,
+      fontSize: 20
+    }
+    canvasData.value.texts.push(newText)
+    redrawMainCanvas()
+    saveToHistory()
+    debouncedNotifyChange()
+  }
+  floatingInput.value.visible = false
+  floatingInput.value.value = ''
+}
+
+const cancelFloatingInput = () => {
+  floatingInput.value.visible = false
+  floatingInput.value.value = ''
+}
+
+// OTRAS FUNCIONES
 const clearCanvas = () => {
-  texts.value = [];
-  shapes.value = [];
-  paths.value = [];
-  saveToHistory();
-  notifyChange();
-  redrawCanvas();
-};
-
-const notifyChange = () => {
-  if (!canvasRef.value) return;
-  emit('change', {
-    drawing: canvasRef.value.toDataURL(),
-    timestamp: new Date().toISOString(),
-    metadata: {
-      width: canvasRef.value.width,
-      height: canvasRef.value.height,
-      texts: texts.value,
-      shapes: shapes.value
-    }
-  });
-};
-
-const setTool = (toolId: string) => {
-  emit('update:activeTool', toolId);
-  toolbarItems.value = toolbarItems.value.map(item => ({
-    ...item,
-    active: item.id === toolId
-  }));
-};
-
-function drawShapes(ctx: CanvasRenderingContext2D, preview = false) {
-  const allShapes = preview && drawingShape.value ? [...shapes.value, drawingShape.value] : shapes.value;
-  allShapes.forEach(shape => {
-    ctx.save();
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = shape.width;
-    if (shape.type === 'rectangle') {
-      ctx.strokeRect(shape.x, shape.y, shape.x2 - shape.x, shape.y2 - shape.y);
-    } else if (shape.type === 'circle') {
-      const centerX = (shape.x + shape.x2) / 2;
-      const centerY = (shape.y + shape.y2) / 2;
-      const radiusX = Math.abs((shape.x2 - shape.x) / 2);
-      const radiusY = Math.abs((shape.y2 - shape.y) / 2);
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-      ctx.stroke();
-    } else if (shape.type === 'line') {
-      ctx.beginPath();
-      ctx.moveTo(shape.x, shape.y);
-      ctx.lineTo(shape.x2, shape.y2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  });
-}
-
-function drawPaths(ctx: CanvasRenderingContext2D) {
-  for (const path of paths.value) {
-    if (path.points.length < 2) continue;
-    ctx.save();
-    ctx.strokeStyle = path.tool === 'eraser' ? '#ffffff' : path.color;
-    ctx.lineWidth = path.tool === 'eraser' ? path.width * 4 : path.width;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(path.points[0].x, path.points[0].y);
-    for (let i = 1; i < path.points.length; i++) {
-      ctx.lineTo(path.points[i].x, path.points[i].y);
-    }
-    ctx.stroke();
-    ctx.restore();
+  canvasData.value = {
+    paths: [],
+    shapes: [],
+    texts: []
   }
+  selectText(null)
+  redrawMainCanvas()
+  saveToHistory()
+  debouncedNotifyChange()
 }
 
-function redrawCanvas(preview = false) {
-  if (!canvasRef.value) return;
-  const canvas = canvasRef.value;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawPaths(ctx);
-  drawShapes(ctx, preview);
-  drawTexts(ctx);
+let notifyTimeout = null
+const debouncedNotifyChange = () => {
+  if (notifyTimeout) {
+    clearTimeout(notifyTimeout)
+  }
+  
+  notifyTimeout = setTimeout(() => {
+    if (!canvasRef.value) return
+    emit('change', {
+      drawing: canvasRef.value.toDataURL(),
+      timestamp: new Date().toISOString(),
+      metadata: {
+        width: canvasRef.value.width,
+        height: canvasRef.value.height,
+        paths: canvasData.value.paths,
+        shapes: canvasData.value.shapes,
+        texts: canvasData.value.texts
+      }
+    })
+  }, 100)
 }
 
-function drawTexts(ctx: CanvasRenderingContext2D) {
-  ctx.save();
-  ctx.font = '20px Arial';
-  ctx.fillStyle = strokeColor.value;
-  texts.value.forEach(t => {
-    ctx.fillText(t.value, t.x, t.y);
-  });
-  ctx.restore();
+const setTool = (toolId) => {
+  emit('update:activeTool', toolId)
+  selectText(null)
+  redrawMainCanvas()
 }
 
-function confirmFloatingInput() {
-  setTimeout(() => {
-    if (floatingInput.value.visible && floatingInput.value.value.trim() !== '') {
-      texts.value.push({ x: floatingInput.value.x, y: floatingInput.value.y, value: floatingInput.value.value });
-      floatingInput.value.visible = false;
-      floatingInput.value.value = '';
-      saveToHistory();
-      notifyChange();
-    } else {
-      floatingInput.value.visible = false;
-      floatingInput.value.value = '';
-    }
-  }, 100);
+const deactivateTool = () => {
+  emit('update:activeTool', 'pencil')
+  selectText(null)
 }
 
-function deactivateTool() {
-  emit('update:activeTool', null);
-}
-
+// LIFECYCLE
 onMounted(() => {
-  initializeCanvas();
-  window.addEventListener('resize', initializeCanvas);
-});
+  initializeCanvas()
+  window.addEventListener('resize', initializeCanvas)
+})
 
+onUnmounted(() => {
+  if (notifyTimeout) {
+    clearTimeout(notifyTimeout)
+  }
+  window.removeEventListener('resize', initializeCanvas)
+})
+
+// WATCHERS
 watch(() => props.initialData, () => {
-  initializeCanvas();
-}, { deep: true });
+  canvasKey.value++
+  nextTick(() => {
+    initializeCanvas()
+  })
+}, { deep: true })
 
 watch(() => props.isEditMode, (newValue) => {
   if (newValue) {
-    // Al entrar en modo edición, reiniciar el historial
-    canvasHistory.value = [];
-    historyIndex.value = -1;
-    saveToHistory();
+    if (canvasHistory.value.length === 0) {
+      saveToHistory()
+    }
   }
-});
-
-watch(texts, () => {
-  redrawCanvas();
-}, { deep: true });
-
-watch(shapes, () => {
-  redrawCanvas();
-}, { deep: true });
-
-const canUndo = computed(() => historyIndex.value > 0);
-const canRedo = computed(() => historyIndex.value < canvasHistory.value.length - 1);
+})
 </script>
 
 <style scoped>
@@ -487,4 +802,4 @@ const canRedo = computed(() => historyIndex.value < canvasHistory.value.length -
   -ms-user-select: none;
   user-select: none;
 }
-</style> 
+</style>
