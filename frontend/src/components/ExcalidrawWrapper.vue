@@ -20,34 +20,12 @@
           <Minus v-else-if="item.icon === 'line'" :size="16" />
           <Type v-else-if="item.icon === 'Type' || item.icon === 'text'" :size="16" />
           <Move v-else-if="item.icon === 'move'" :size="16" />
+          <MousePointer v-else-if="item.icon === 'select'" :size="16" />
+          <Trash2 v-else-if="item.icon === 'delete'" :size="16" />
         </button>
       </div>
       
       <div class="flex items-center space-x-2">
-        <div class="flex items-center space-x-1">
-          <button
-            @click="undo"
-            :disabled="!canUndo"
-            :class="[
-              'p-1.5 rounded transition-colors',
-              canUndo ? 'text-gray-500 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
-            ]"
-            title="Deshacer"
-          >
-            <Undo2 :size="16" />
-          </button>
-          <button
-            @click="redo"
-            :disabled="!canRedo"
-            :class="[
-              'p-1.5 rounded transition-colors',
-              canRedo ? 'text-gray-500 hover:bg-gray-100' : 'text-gray-300 cursor-not-allowed'
-            ]"
-            title="Rehacer"
-          >
-            <Redo2 :size="16" />
-          </button>
-        </div>
         
         <div class="flex items-center space-x-2">
           <input 
@@ -67,6 +45,18 @@
             <option value="6">Extra</option>
           </select>
         </div>
+        
+        <button
+          @click="deleteSelected"
+          :disabled="!hasSelection"
+          :class="[
+            'text-xs px-2 py-1 rounded transition-colors',
+            hasSelection ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          ]"
+          title="Eliminar seleccionado"
+        >
+          Eliminar
+        </button>
         
         <button
           @click="clearCanvas"
@@ -128,7 +118,7 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick, computed, onUnmounted } from 'vue'
-import { Edit3, Eraser, Square, Circle, Minus, Undo2, Redo2, Type, Move } from 'lucide-vue-next'
+import { Edit3, Eraser, Square, Circle, Minus, Type, Move, MousePointer, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   initialData: {
@@ -151,11 +141,18 @@ const emit = defineEmits(['change', 'save', 'update:activeTool'])
 const canvasRef = ref(null)
 const canvasKey = ref(0)
 
-// Estado de dibujo - CORREGIDO
+// Estado de dibujo
 const isDrawing = ref(false)
 const isDraggingText = ref(false)
 const selectedTextId = ref(null)
 const dragOffset = ref({ x: 0, y: 0 })
+
+// NUEVO: Estado de selección
+const selectedElements = ref({
+  shapes: new Set(),
+  texts: new Set(),
+  paths: new Set()
+})
 
 // Propiedades de dibujo
 const strokeColor = ref('#000000')
@@ -168,7 +165,7 @@ const canvasData = ref({
   texts: []
 })
 
-// Estado temporal durante el dibujo - CORREGIDO
+// Estado temporal durante el dibujo
 const currentPath = ref(null)
 const drawingShape = ref(null)
 
@@ -185,8 +182,9 @@ const floatingInput = ref({
   visible: false 
 })
 
-// Toolbar items
+// ACTUALIZADO: Toolbar items con nuevas herramientas
 const toolbarItems = ref([
+  { id: 'select', icon: 'select', label: 'Seleccionar' },
   { id: 'pencil', icon: 'pencil', label: 'Lápiz' },
   { id: 'line', icon: 'line', label: 'Línea' },
   { id: 'rectangle', icon: 'square', label: 'Rectángulo' },
@@ -197,10 +195,21 @@ const toolbarItems = ref([
 ])
 
 // Computed properties
-const canUndo = computed(() => historyIndex.value > 0)
-const canRedo = computed(() => historyIndex.value < canvasHistory.value.length - 1)
+const hasSelection = computed(() => {
+  return selectedElements.value.shapes.size > 0 || 
+         selectedElements.value.texts.size > 0 || 
+         selectedElements.value.paths.size > 0
+})
 
-// FUNCIONES DE HISTORIAL
+const canUndo = computed(() => {
+  return historyIndex.value > 0
+})
+
+const canRedo = computed(() => {
+  return historyIndex.value < canvasHistory.value.length - 1
+})
+
+// FUNCIONES DE HISTORIAL (sin cambios)
 const saveToHistory = () => {
   const currentState = JSON.parse(JSON.stringify(canvasData.value))
   
@@ -236,11 +245,153 @@ const loadFromHistory = () => {
   if (!state) return
   
   canvasData.value = JSON.parse(JSON.stringify(state))
+  clearSelection()
   redrawMainCanvas()
   debouncedNotifyChange()
 }
 
-// INICIALIZACIÓN DEL CANVAS
+// NUEVAS FUNCIONES DE SELECCIÓN
+const clearSelection = () => {
+  selectedElements.value.shapes.clear()
+  selectedElements.value.texts.clear()
+  selectedElements.value.paths.clear()
+  selectedTextId.value = null
+}
+
+const isElementSelected = (type, id) => {
+  return selectedElements.value[type].has(id)
+}
+
+const toggleElementSelection = (type, id) => {
+  if (selectedElements.value[type].has(id)) {
+    selectedElements.value[type].delete(id)
+  } else {
+    selectedElements.value[type].add(id)
+  }
+}
+
+const findElementAtPosition = (pos) => {
+  // Buscar texto
+  const text = findTextAtPosition(pos)
+  if (text) return { type: 'texts', element: text }
+  
+  // Buscar forma
+  const shape = findShapeAtPosition(pos)
+  if (shape) return { type: 'shapes', element: shape }
+  
+  // Buscar trazo (más complejo, simplificado aquí)
+  const path = findPathAtPosition(pos)
+  if (path) return { type: 'paths', element: path }
+  
+  return null
+}
+
+const findShapeAtPosition = (pos) => {
+  for (let i = canvasData.value.shapes.length - 1; i >= 0; i--) {
+    const shape = canvasData.value.shapes[i]
+    
+    if (shape.type === 'rectangle') {
+      const minX = Math.min(shape.x, shape.x2)
+      const maxX = Math.max(shape.x, shape.x2)
+      const minY = Math.min(shape.y, shape.y2)
+      const maxY = Math.max(shape.y, shape.y2)
+      
+      if (pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY) {
+        return { ...shape, index: i, id: i.toString() }
+      }
+    } else if (shape.type === 'circle') {
+      const centerX = (shape.x + shape.x2) / 2
+      const centerY = (shape.y + shape.y2) / 2
+      const radiusX = Math.abs((shape.x2 - shape.x) / 2)
+      const radiusY = Math.abs((shape.y2 - shape.y) / 2)
+      
+      const dx = (pos.x - centerX) / radiusX
+      const dy = (pos.y - centerY) / radiusY
+      
+      if (dx * dx + dy * dy <= 1) {
+        return { ...shape, index: i, id: i.toString() }
+      }
+    } else if (shape.type === 'line') {
+      // Verificar proximidad a la línea (simplificado)
+      const distance = distanceToLine(pos, { x: shape.x, y: shape.y }, { x: shape.x2, y: shape.y2 })
+      if (distance <= shape.width + 5) {
+        return { ...shape, index: i, id: i.toString() }
+      }
+    }
+  }
+  return null
+}
+
+const findPathAtPosition = (pos) => {
+  // Implementación simplificada - verificar si el punto está cerca de algún trazo
+  for (let i = canvasData.value.paths.length - 1; i >= 0; i--) {
+    const path = canvasData.value.paths[i]
+    for (let j = 0; j < path.points.length; j++) {
+      const point = path.points[j]
+      const distance = Math.sqrt((pos.x - point.x) ** 2 + (pos.y - point.y) ** 2)
+      if (distance <= path.width + 5) {
+        return { ...path, index: i, id: i.toString() }
+      }
+    }
+  }
+  return null
+}
+
+const distanceToLine = (point, lineStart, lineEnd) => {
+  const A = point.x - lineStart.x
+  const B = point.y - lineStart.y
+  const C = lineEnd.x - lineStart.x
+  const D = lineEnd.y - lineStart.y
+
+  const dot = A * C + B * D
+  const lenSq = C * C + D * D
+  let param = -1
+  if (lenSq !== 0) param = dot / lenSq
+
+  let xx, yy
+
+  if (param < 0) {
+    xx = lineStart.x
+    yy = lineStart.y
+  } else if (param > 1) {
+    xx = lineEnd.x
+    yy = lineEnd.y
+  } else {
+    xx = lineStart.x + param * C
+    yy = lineStart.y + param * D
+  }
+
+  const dx = point.x - xx
+  const dy = point.y - yy
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+// NUEVA FUNCIÓN: Eliminar elementos seleccionados
+const deleteSelected = () => {
+  if (!hasSelection.value) return
+  
+  // Eliminar formas seleccionadas
+  canvasData.value.shapes = canvasData.value.shapes.filter((_, index) => 
+    !selectedElements.value.shapes.has(index.toString())
+  )
+  
+  // Eliminar textos seleccionados
+  canvasData.value.texts = canvasData.value.texts.filter(text => 
+    !selectedElements.value.texts.has(text.id)
+  )
+  
+  // Eliminar trazos seleccionados
+  canvasData.value.paths = canvasData.value.paths.filter((_, index) => 
+    !selectedElements.value.paths.has(index.toString())
+  )
+  
+  clearSelection()
+  redrawMainCanvas()
+  saveToHistory()
+  debouncedNotifyChange()
+}
+
+// INICIALIZACIÓN DEL CANVAS (sin cambios significativos)
 const initializeCanvas = async () => {
   await nextTick()
   if (!canvasRef.value) return
@@ -278,12 +429,12 @@ const resetCanvasState = () => {
     texts: []
   }
   
-  // IMPORTANTE: Resetear completamente el estado temporal
   currentPath.value = null
   drawingShape.value = null
   selectedTextId.value = null
   isDraggingText.value = false
   isDrawing.value = false
+  clearSelection()
   
   canvasHistory.value = []
   historyIndex.value = -1
@@ -326,7 +477,7 @@ const loadInitialData = () => {
   }
 }
 
-// FUNCIONES DE DIBUJO
+// FUNCIONES DE DIBUJO ACTUALIZADAS
 const redrawMainCanvas = () => {
   if (!canvasRef.value) return
   
@@ -342,14 +493,13 @@ const redrawMainCanvas = () => {
   drawShapes(ctx)
   drawTexts(ctx)
   
-  // Si hay un trazo actual en progreso, dibujarlo también
   if (currentPath.value && currentPath.value.points.length > 0) {
     drawCurrentPath(ctx)
   }
 }
 
 const drawPaths = (ctx) => {
-  canvasData.value.paths.forEach(path => {
+  canvasData.value.paths.forEach((path, index) => {
     if (path.points.length < 2) return
     
     ctx.save()
@@ -362,6 +512,12 @@ const drawPaths = (ctx) => {
       ctx.globalCompositeOperation = 'source-over'
       ctx.strokeStyle = path.color
       ctx.lineWidth = path.width
+    }
+    
+    // NUEVO: Resaltar si está seleccionado
+    if (isElementSelected('paths', index.toString())) {
+      ctx.shadowColor = '#0066cc'
+      ctx.shadowBlur = 10
     }
     
     ctx.lineCap = 'round'
@@ -377,7 +533,6 @@ const drawPaths = (ctx) => {
   })
 }
 
-// NUEVA FUNCIÓN: Dibujar el trazo actual en progreso
 const drawCurrentPath = (ctx) => {
   if (!currentPath.value || currentPath.value.points.length === 0) return
   
@@ -397,13 +552,11 @@ const drawCurrentPath = (ctx) => {
   ctx.lineJoin = 'round'
   
   if (currentPath.value.points.length === 1) {
-    // Para un solo punto, dibujar un círculo
     const point = currentPath.value.points[0]
     ctx.beginPath()
     ctx.arc(point.x, point.y, currentPath.value.width / 2, 0, 2 * Math.PI)
     ctx.fill()
   } else {
-    // Para múltiples puntos, dibujar línea
     ctx.beginPath()
     ctx.moveTo(currentPath.value.points[0].x, currentPath.value.points[0].y)
     for (let i = 1; i < currentPath.value.points.length; i++) {
@@ -416,10 +569,18 @@ const drawCurrentPath = (ctx) => {
 }
 
 const drawShapes = (ctx) => {
-  canvasData.value.shapes.forEach(shape => {
+  canvasData.value.shapes.forEach((shape, index) => {
     ctx.save()
     ctx.strokeStyle = shape.color
     ctx.lineWidth = shape.width
+    
+    // NUEVO: Resaltar si está seleccionado
+    if (isElementSelected('shapes', index.toString())) {
+      ctx.shadowColor = '#0066cc'
+      ctx.shadowBlur = 10
+      ctx.strokeStyle = '#0066cc'
+      ctx.lineWidth = shape.width + 2
+    }
     
     if (shape.type === 'rectangle') {
       ctx.strokeRect(shape.x, shape.y, shape.x2 - shape.x, shape.y2 - shape.y)
@@ -448,9 +609,16 @@ const drawTexts = (ctx) => {
   canvasData.value.texts.forEach(text => {
     ctx.font = `${text.fontSize || 20}px Arial`
     ctx.fillStyle = text.color
+    
+    // NUEVO: Resaltar si está seleccionado
+    if (isElementSelected('texts', text.id)) {
+      ctx.shadowColor = '#0066cc'
+      ctx.shadowBlur = 5
+    }
+    
     ctx.fillText(text.value, text.x, text.y)
     
-    if (text.isSelected) {
+    if (text.isSelected || isElementSelected('texts', text.id)) {
       const metrics = ctx.measureText(text.value)
       const textHeight = text.fontSize || 20
       
@@ -465,7 +633,7 @@ const drawTexts = (ctx) => {
   ctx.restore()
 }
 
-// EVENTOS DE DIBUJO - CORREGIDOS
+// EVENTOS DE DIBUJO ACTUALIZADOS
 const getEventPosition = (e) => {
   const rect = canvasRef.value.getBoundingClientRect()
   let clientX = 0, clientY = 0
@@ -488,6 +656,26 @@ const startDrawing = (e) => {
   if (!props.isEditMode) return
   
   const pos = getEventPosition(e)
+
+  // NUEVO: Modo selección
+  if (props.activeTool === 'select') {
+    const element = findElementAtPosition(pos)
+    if (element) {
+      if (e.ctrlKey || e.metaKey) {
+        // Selección múltiple
+        toggleElementSelection(element.type, element.element.id || element.element.index?.toString())
+      } else {
+        // Selección simple
+        clearSelection()
+        toggleElementSelection(element.type, element.element.id || element.element.index?.toString())
+      }
+      redrawMainCanvas()
+    } else if (!e.ctrlKey && !e.metaKey) {
+      clearSelection()
+      redrawMainCanvas()
+    }
+    return
+  }
 
   if (props.activeTool === 'text') {
     floatingInput.value = {
@@ -533,11 +721,9 @@ const startDrawing = (e) => {
     return
   }
 
-  // LÁPIZ Y BORRADOR - CORREGIDO
   if (props.activeTool === 'pencil' || props.activeTool === 'eraser') {
     isDrawing.value = true
     
-    // Crear nuevo trazo temporal
     currentPath.value = {
       tool: props.activeTool,
       color: strokeColor.value,
@@ -545,7 +731,6 @@ const startDrawing = (e) => {
       points: [pos]
     }
     
-    // Redibujar inmediatamente para mostrar el primer punto
     redrawMainCanvas()
     return
   }
@@ -577,12 +762,8 @@ const draw = (e) => {
     return
   }
 
-  // LÁPIZ Y BORRADOR - CORREGIDO
   if ((props.activeTool === 'pencil' || props.activeTool === 'eraser') && currentPath.value) {
-    // Agregar punto al trazo actual
     currentPath.value.points.push(pos)
-    
-    // Redibujar canvas con el trazo en progreso
     redrawMainCanvas()
     return
   }
@@ -610,16 +791,12 @@ const stopDrawing = () => {
     return
   }
 
-  // LÁPIZ Y BORRADOR - CORREGIDO
   if (isDrawing.value && (props.activeTool === 'pencil' || props.activeTool === 'eraser') && currentPath.value) {
-    // Agregar el trazo completado a los datos permanentes
     canvasData.value.paths.push({ ...currentPath.value })
     
-    // Limpiar estado temporal
     currentPath.value = null
     isDrawing.value = false
     
-    // Redibujar y guardar
     redrawMainCanvas()
     saveToHistory()
     debouncedNotifyChange()
@@ -661,7 +838,7 @@ const drawTemporaryShape = () => {
   ctx.restore()
 }
 
-// FUNCIONES DE TEXTO
+// FUNCIONES DE TEXTO (sin cambios significativos)
 const findTextAtPosition = (pos) => {
   if (!canvasRef.value) return null
   
@@ -724,6 +901,7 @@ const clearCanvas = () => {
     texts: []
   }
   selectText(null)
+  clearSelection()
   redrawMainCanvas()
   saveToHistory()
   debouncedNotifyChange()
@@ -754,12 +932,14 @@ const debouncedNotifyChange = () => {
 const setTool = (toolId) => {
   emit('update:activeTool', toolId)
   selectText(null)
+  clearSelection()
   redrawMainCanvas()
 }
 
 const deactivateTool = () => {
   emit('update:activeTool', 'pencil')
   selectText(null)
+  clearSelection()
 }
 
 // LIFECYCLE
