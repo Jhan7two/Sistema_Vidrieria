@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-6xl mx-auto p-6">
+  <div id="cotizaciones-component" class="max-w-6xl mx-auto p-6">
     <!-- Mensaje de estado -->
     <div v-if="mensaje.visible" 
          :class="['mb-4 p-4 rounded-md', mensaje.esError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700']">
@@ -457,7 +457,25 @@ const cancelar = () => {
   router.push('/operador/cotizaciones');
 };
 
+// Recibir el costo total desde la cotización
+const recibirCostoTotal = (costo) => {
+  trabajo.value.costo_total = costo;
+};
+
+// Exponer la función para que pueda ser llamada desde el componente de cotización
+defineExpose({
+  recibirCostoTotal
+});
+
 onMounted(() => {
   cargarClientes();
+  
+  // Obtener el total de la cotización si existe
+  const cotizacionTotal = localStorage.getItem('cotizacionTotal');
+  if (cotizacionTotal) {
+    trabajo.value.costo_total = Number(cotizacionTotal);
+    // Limpiar el localStorage después de usarlo
+    localStorage.removeItem('cotizacionTotal');
+  }
 });
 </script>

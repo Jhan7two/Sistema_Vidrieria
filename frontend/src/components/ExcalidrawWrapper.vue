@@ -85,12 +85,15 @@
       </div>
       <canvas
         ref="canvasRef"
-        class="w-full h-[400px] cursor-crosshair"
+        class="w-full h-[400px] cursor-crosshair touch-none"
         @click="startDrawing"
         @mousemove="draw"
         @mouseup="stopDrawing"
         @mouseleave="stopDrawing"
         @dblclick="deactivateTool"
+        @touchstart.prevent="startDrawing"
+        @touchmove.prevent="draw"
+        @touchend.prevent="stopDrawing"
       />
       <input
         v-if="floatingInput.visible"
@@ -447,15 +450,6 @@ function deactivateTool() {
 onMounted(() => {
   initializeCanvas();
   window.addEventListener('resize', initializeCanvas);
-
-  // Listeners pasivos para touch
-  if (canvasRef.value) {
-    canvasRef.value.addEventListener('touchstart', startDrawing as EventListener, { passive: true });
-    canvasRef.value.addEventListener('touchmove', draw as EventListener, { passive: true });
-    canvasRef.value.addEventListener('touchend', stopDrawing as EventListener, { passive: true });
-  }
-  // Guardar el estado inicial en el historial
-  setTimeout(() => { saveToHistory(); }, 200);
 });
 
 watch(() => props.initialData, () => {
@@ -481,4 +475,16 @@ watch(shapes, () => {
 
 const canUndo = computed(() => historyIndex.value > 0);
 const canRedo = computed(() => historyIndex.value < canvasHistory.value.length - 1);
-</script> 
+</script>
+
+<style scoped>
+.touch-none {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+</style> 
