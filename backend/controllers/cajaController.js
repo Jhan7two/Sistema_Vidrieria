@@ -334,13 +334,15 @@ exports.registrarMovimiento = async (req, res) => {
 
 // Realizar cierre de caja
 exports.cerrarCaja = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
+    
+    // Verificar si ya existe un cierre para el día actual
     const hoy = new Date();
     const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
     
-    // Verificar si ya existe un cierre para el día actual
     const cierreExistente = await CierreCaja.findOne({
       where: {
         fecha: {
@@ -355,18 +357,12 @@ exports.cerrarCaja = async (req, res) => {
       await transaction.rollback();
       return res.status(400).json({ 
         message: 'Ya existe un cierre de caja para el día de hoy',
-        cierre_id: cierreExistente.id
+        cierre: cierreExistente
       });
     }
     
-    // Usar directamente el ID de usuario de la sesión o ID predeterminado
-    const usuarioId = req.user ? req.user.id : 1;
-    console.log('ID de usuario para cierre de caja:', usuarioId);
-    
-    const { observaciones } = req.body;
-    
-    // Obtener los movimientos del día
-    const movimientosDia = await Caja.findAll({
+    // Obtener movimientos del día
+    const movimientos = await Caja.findAll({
       where: {
         fecha_hora: {
           [Op.gte]: fechaInicio,
@@ -377,15 +373,13 @@ exports.cerrarCaja = async (req, res) => {
     });
     
     // Calcular totales
-    const totalEntradas = movimientosDia
+    const totalEntradas = movimientos
       .filter(m => m.tipo_movimiento === 'entrada')
       .reduce((sum, m) => sum + parseFloat(m.monto), 0);
-      
-    const totalSalidas = movimientosDia
+    
+    const totalSalidas = movimientos
       .filter(m => m.tipo_movimiento === 'salida')
       .reduce((sum, m) => sum + parseFloat(m.monto), 0);
-    
-    const saldoFinal = totalEntradas - totalSalidas;
     
     // Obtener el saldo actual
     const ultimoMovimiento = await Caja.findOne({
@@ -395,34 +389,34 @@ exports.cerrarCaja = async (req, res) => {
     
     const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
     
-    // Guardar el cierre en la tabla cierres_caja con los nombres de columnas correctos
-    const cierreCaja = await CierreCaja.create({
-      fecha: fechaInicio,
-      total_ventas: totalEntradas, // Cambiado de total_entradas a total_ventas
-      total_gastos: totalSalidas, // Cambiado de total_salidas a total_gastos
-      saldo_final: saldoFinal,
-      usuario_id: usuarioId,
-      observaciones: observaciones || 'Cierre de caja diario'
+    // Crear el registro de cierre con el saldo real
+    const cierre = await CierreCaja.create({
+      fecha: new Date(),
+      total_ventas: totalEntradas,
+      total_gastos: totalSalidas,
+      saldo_final: saldoActual,
+      saldo_actual: saldoActual,
+      observaciones: req.body.observaciones || 'Cierre de caja diario',
+      usuario_id: req.user ? req.user.id : 1
     }, { transaction });
-    
-    console.log('Cierre de caja guardado con ID:', cierreCaja.id);
     
     await transaction.commit();
     
-    // Devolver respuesta con los datos del cierre
-    res.status(200).json({
-      message: 'Caja cerrada correctamente',
-      fecha: fechaInicio,
-      total_entradas: totalEntradas, // Mantenemos estos nombres en la respuesta para no romper el frontend
+    res.json({
+      message: 'Caja cerrada exitosamente',
+      cierre,
+      total_entradas: totalEntradas,
       total_salidas: totalSalidas,
-      saldo_final: saldoFinal,
-      saldo_actual: saldoActual,
-      cierre_id: cierreCaja.id
+      saldo_final: saldoActual,
+      saldo_actual: saldoActual
     });
   } catch (error) {
-    await transaction.rollback();
-    console.error('Error al intentar cerrar caja:', error);
-    res.status(500).json({ message: 'Error al cerrar caja', error: error.message });
+    if (transaction) await transaction.rollback();
+    console.error('Error al cerrar caja:', error);
+    res.status(500).json({ 
+      message: 'Error al cerrar caja',
+      error: error.message 
+    });
   }
 };
 

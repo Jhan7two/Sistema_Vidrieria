@@ -318,9 +318,17 @@ export default {
     async cargarDatos() {
       try {
         this.cargando = true;
-        // Cargar saldo actual
-        const dataSaldo = await getSaldoActual();
-        this.saldo = dataSaldo.saldo;
+        
+        // Verificar si ya existe un cierre para el día actual
+        const verificacion = await verificarCierreDiario();
+        if (verificacion.existeCierre) {
+          this.cerrado = true;
+          this.saldo = 0; // Forzar saldo a 0 si hay cierre
+        } else {
+          // Cargar saldo actual solo si no hay cierre
+          const dataSaldo = await getSaldoActual();
+          this.saldo = parseFloat(dataSaldo.saldo) || 0; // Asegurar que sea número
+        }
         
         // Cargar movimientos diarios
         const dataMovimientos = await getMovimientosDiarios();
@@ -330,8 +338,6 @@ export default {
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
         
-        // Verificar si ya existe un cierre para el día actual
-        await this.verificarCierreDiario();
       } catch (error) {
         console.error("Error al cargar datos:", error);
         this.error = "Error al cargar datos. Intente nuevamente.";
@@ -359,7 +365,8 @@ export default {
         // Actualizar la vista
         if (response && response.movimiento) {
           this.movimientos.unshift(response.movimiento);
-          this.saldo = response.saldo;
+          // Actualizar el saldo inmediatamente
+          this.saldo = parseFloat(response.movimiento.saldo_resultante) || 0;
         }
         
         // Limpiar formulario
@@ -625,6 +632,12 @@ export default {
         // Actualizar estado
         this.cerrado = true;
         this.mensaje = "Caja cerrada correctamente";
+        
+        // Forzar el saldo a 0 después del cierre (solo en el frontend)
+        this.saldo = 0;
+        
+        // Recargar datos para actualizar los movimientos
+        await this.cargarDatos();
       } catch (error) {
         console.error("Error al cerrar día:", error);
         

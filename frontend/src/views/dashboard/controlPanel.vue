@@ -58,8 +58,7 @@
                 <div class="mt-5">
                   <p class="text-sm font-medium text-gray-700">¿Qué deseas hacer?</p>
                   <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <!-- Opciones del panel según el rol -->
-                    <button class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
+                    <button @click="setActiveModule('ventasGastos')" class="bg-white border border-gray-300 rounded-md shadow-sm p-4 flex items-center space-x-3 hover:bg-gray-50">
                       <svg class="h-6 w-6 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
@@ -108,6 +107,7 @@
             <ReportesCaja v-if="activeModule === 'reportesCaja'" />
             <GestionUsuarios v-if="activeModule === 'usuarios'" />
             <GestionClientes v-if="activeModule === 'clientes'" />
+            <GestionVentasGastos v-if="activeModule === 'ventasGastos'" />
           </div>
         </main>
       </div>
@@ -120,6 +120,7 @@
   import ReportesCaja from '../../components/ReportesCaja.vue'
   import GestionUsuarios from '../../components/GestionUsuarios.vue'
   import GestionClientes from '../../components/GestionClientes.vue'
+  import GestionVentasGastos from '../../components/GestionVentasGastos.vue'
   
   // Estado local
   const profileMenuOpen = ref(false)
