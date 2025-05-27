@@ -329,18 +329,19 @@ export default {
         } else {
           // Cargar saldo actual solo si no hay cierre
           const dataSaldo = await getSaldoActual();
-          this.saldo = parseFloat(dataSaldo.saldo) || 0; // Asegurar que sea número
+          this.saldo = parseFloat(dataSaldo.saldo) || 0;
         }
         
         // Cargar movimientos diarios
         const dataMovimientos = await getMovimientosDiarios();
-        console.log('Movimientos recibidos:', dataMovimientos); // Para debug
         this.movimientos = Array.isArray(dataMovimientos.movimientos) ? dataMovimientos.movimientos : [];
         
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
         
+        // Limpiar mensajes de error si todo salió bien
+        this.error = null;
       } catch (error) {
         console.error("Error al cargar datos:", error);
         this.error = "Error al cargar datos. Intente nuevamente.";
@@ -370,6 +371,9 @@ export default {
           this.movimientos.unshift(response.movimiento);
           // Actualizar el saldo inmediatamente
           this.saldo = parseFloat(response.movimiento.saldo_resultante) || 0;
+          
+          // Mostrar mensaje de éxito
+          this.mostrarMensajeExito("Movimiento registrado exitosamente");
         }
         
         // Limpiar formulario
@@ -378,6 +382,9 @@ export default {
         } else {
           this.nuevoEgreso = { concepto: '', monto: null, descripcion: '', forma_pago: 'efectivo' };
         }
+        
+        // Recargar datos para asegurar consistencia
+        await this.cargarDatos();
       } catch (error) {
         console.error("Error al registrar movimiento:", error);
         this.error = error.response?.data?.message || "Error al registrar movimiento.";
@@ -536,19 +543,14 @@ export default {
           trabajo_id: this.trabajoSeleccionado.id,
           monto: monto,
           tipo_pago: this.nuevoCobro.metodo_pago || 'efectivo',
-          observacion: this.nuevoCobro.observaciones // Usar "observacion" para que coincida con el backend
+          observacion: this.nuevoCobro.observaciones
         };
-        
-        console.log("Enviando datos para registrar cobro:", datos);
         
         // Llamar al servicio
         const response = await createCobro(datos);
         
-        console.log("Cobro registrado exitosamente:", response);
-        
-        // Actualizar la vista
         if (response) {
-          // Recargar datos
+          // Actualizar datos inmediatamente
           await this.cargarDatos();
           
           // Cerrar el formulario

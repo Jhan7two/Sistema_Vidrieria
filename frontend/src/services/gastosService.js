@@ -1,14 +1,18 @@
 import apiClient from "./api";
 
-// Servicio especializado para gastos del mes (usado en dashboard)
+/**
+ * Obtiene los gastos del mes actual
+ * @param {number} page - Número de página
+ * @param {number} limit - Límite de registros por página
+ * @returns {Promise<{gastos: Array, totalMes: number}>}
+ */
 export async function getGastosDelMes(page = 1, limit = 10) {
   try {
     const response = await apiClient.get(`/gastos?page=${page}&limit=${limit}&sort=fecha:desc`);
-    console.log('Respuesta completa de gastos:', response);
     
     // Asegurarnos de que devolvemos un array
     let gastosData = [];
-    if (response.data && Array.isArray(response.data)) {
+    if (Array.isArray(response.data)) {
       gastosData = response.data;
     } else if (Array.isArray(response.data?.data)) {
       gastosData = response.data.data;
@@ -20,30 +24,33 @@ export async function getGastosDelMes(page = 1, limit = 10) {
     // Procesar los datos para asegurar que los montos sean números
     const gastosProcesados = gastosData.map(gasto => ({
       ...gasto,
-      monto: typeof gasto.monto === 'string' ? parseFloat(gasto.monto) : gasto.monto
+      monto: typeof gasto.monto === 'string' ? parseFloat(gasto.monto) : gasto.monto,
+      fecha: gasto.fecha ? new Date(gasto.fecha) : null
     }));
 
     // Calcular el total del mes
-    const totalMes = gastosProcesados.reduce((sum, gasto) => sum + gasto.monto, 0);
+    const totalMes = gastosProcesados.reduce((sum, gasto) => sum + (gasto.monto || 0), 0);
 
     return {
       gastos: gastosProcesados,
-      totalMes: totalMes
+      totalMes: parseFloat(totalMes.toFixed(2))
     };
   } catch (error) {
     console.error("Error en getGastosDelMes:", error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Error al obtener los gastos del mes');
   }
 }
 
-// Servicio para obtener el histórico completo de gastos (usado en panel de control)
+/**
+ * Obtiene el histórico completo de gastos
+ * @returns {Promise<Array>}
+ */
 export async function getHistoricoGastos() {
   try {
     const response = await apiClient.get(`/gastos?sort=fecha:desc`);
-    console.log('Respuesta completa de histórico de gastos:', response);
     
     let gastosData = [];
-    if (response.data && Array.isArray(response.data)) {
+    if (Array.isArray(response.data)) {
       gastosData = response.data;
     } else if (Array.isArray(response.data?.data)) {
       gastosData = response.data.data;
@@ -54,50 +61,63 @@ export async function getHistoricoGastos() {
 
     return gastosData.map(gasto => ({
       ...gasto,
-      monto: typeof gasto.monto === 'string' ? parseFloat(gasto.monto) : gasto.monto
+      monto: typeof gasto.monto === 'string' ? parseFloat(gasto.monto) : gasto.monto,
+      fecha: gasto.fecha ? new Date(gasto.fecha) : null
     }));
   } catch (error) {
     console.error("Error en getHistoricoGastos:", error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Error al obtener el histórico de gastos');
   }
 }
 
+/**
+ * Obtiene las estadísticas de gastos por categoría
+ * @returns {Promise<Object>}
+ */
 export async function getGastosPorCategoria() {
   try {
     const response = await apiClient.get("/gastos/categorias");
     return response.data;
   } catch (error) {
     console.error("Error en getGastosPorCategoria:", error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Error al obtener gastos por categoría');
   }
 }
 
+/**
+ * Crea un nuevo gasto
+ * @param {Object} gasto - Datos del gasto a crear
+ * @returns {Promise<Object>}
+ */
+export async function crearGasto(gasto) {
+  try {
+    // Asegurarse de que el monto sea un número
+    if (gasto.monto) {
+      gasto.monto = parseFloat(gasto.monto);
+      if (isNaN(gasto.monto)) {
+        throw new Error('El monto debe ser un número válido');
+      }
+    }
+    
+    const response = await apiClient.post("/gastos", gasto);
+    return response.data;
+  } catch (error) {
+    console.error("Error en crearGasto:", error);
+    throw new Error(error.response?.data?.message || 'Error al crear el gasto');
+  }
+}
+
+/**
+ * Obtiene las estadísticas del dashboard
+ * @returns {Promise<Object>}
+ */
 export async function getDashboardStats() {
   try {
     const response = await apiClient.get("/gastos/stats");
     return response.data;
   } catch (error) {
     console.error("Error en getDashboardStats:", error);
-    throw error;
-  }
-}
-
-// Función para crear un nuevo gasto
-export async function crearGasto(gasto) {
-  try {
-    // Asegurarse de que el monto sea un número
-    if (gasto.monto && typeof gasto.monto === 'string') {
-      gasto.monto = parseFloat(gasto.monto);
-    }
-    
-    console.log("Datos enviados a /gastos:", gasto);
-    const response = await apiClient.post("/gastos", gasto);
-    console.log("Respuesta del endpoint /gastos:", response);
-    
-    return response.data;
-  } catch (error) {
-    console.error("ERROR en crearGasto:", error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Error al obtener las estadísticas');
   }
 }
 
