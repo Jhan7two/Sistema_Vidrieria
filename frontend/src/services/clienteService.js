@@ -40,10 +40,14 @@ export async function createCliente(cliente) {
   try {
     console.log('Creando cliente:', cliente);
     const response = await apiClient.post("/clientes", cliente);
-    console.log('Cliente creado:', response);
-    return response;
+    console.log('Respuesta completa del servidor:', response);
+    console.log('Datos del cliente creado:', response.data);
+    return response.data;
   } catch (error) {
     console.error('Error al crear cliente:', error);
+    if (error.response) {
+      console.error('Respuesta de error:', error.response.data);
+    }
     throw error;
   }
 }

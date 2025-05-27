@@ -349,16 +349,41 @@ const guardarCliente = async () => {
       return null;
     }
 
-    const data = await createCliente(nuevoCliente.value);
-    clienteSeleccionado.value = data.id;
-    trabajo.value.cliente_id = data.id;
+    const clienteCreado = await createCliente(nuevoCliente.value);
+    console.log('Cliente creado:', clienteCreado);
+
+    if (!clienteCreado) {
+      mostrarMensaje('Error al crear el cliente: No se recibió respuesta válida', true);
+      return null;
+    }
+
+    // Verificar si la respuesta tiene la estructura esperada
+    const clienteId = clienteCreado.id || (clienteCreado.data && clienteCreado.data.id);
+    console.log('ID del cliente creado:', clienteId);
+    
+    if (!clienteId) {
+      console.error('Estructura de respuesta inesperada:', clienteCreado);
+      mostrarMensaje('Error al crear el cliente: No se recibió ID válido', true);
+      return null;
+    }
+
+    // Establecer el ID del cliente en el trabajo
+    trabajo.value.cliente_id = clienteId;
+    clienteSeleccionado.value = clienteId;
+    
+    // Limpiar el formulario de nuevo cliente
+    nuevoCliente.value = {
+      nombre: '',
+      telefono: ''
+    };
+    
     await cargarClientes();
     tipoCliente.value = 'existente';
     mostrarMensaje('Cliente creado correctamente', false);
-    return data.id;
+    return clienteId;
   } catch (err) {
     console.error('Error al guardar cliente:', err);
-    mostrarMensaje('Error al guardar el cliente. Por favor, intente nuevamente.', true);
+    mostrarMensaje('Error al guardar el cliente: ' + (err.message || 'Error desconocido'), true);
     return null;
   } finally {
     cargando.value = false;
@@ -366,6 +391,16 @@ const guardarCliente = async () => {
 };
 
 const validarFormulario = () => {
+  if (tipoCliente.value === 'nuevo' && !nuevoCliente.value.nombre) {
+    mostrarMensaje('El nombre del cliente es obligatorio', true);
+    return false;
+  }
+  
+  if (tipoCliente.value === 'existente' && !clienteSeleccionado.value) {
+    mostrarMensaje('Debe seleccionar un cliente existente', true);
+    return false;
+  }
+
   if (!trabajo.value.tipo) {
     mostrarMensaje('El tipo de trabajo es obligatorio', true);
     return false;
@@ -382,10 +417,6 @@ const validarFormulario = () => {
     mostrarMensaje('El costo total debe ser mayor a 0', true);
     return false;
   }
-  if (!trabajo.value.cliente_id) {
-    mostrarMensaje('Debe seleccionar o crear un cliente', true);
-    return false;
-  }
   return true;
 };
 
@@ -400,10 +431,25 @@ const guardarCotizacion = async () => {
 
     // Si es cliente nuevo, primero guardarlo
     if (tipoCliente.value === 'nuevo') {
+      console.log('Creando nuevo cliente...');
       const clienteId = await guardarCliente();
+      console.log('ID del cliente creado:', clienteId);
+      
       if (!clienteId) {
+        mostrarMensaje('No se pudo crear el cliente. No se puede continuar.', true);
         return;
       }
+      
+      // Asegurarse de que el cliente_id esté establecido
+      trabajo.value.cliente_id = clienteId;
+      console.log('Cliente ID establecido en el trabajo:', trabajo.value.cliente_id);
+    }
+
+    // Verificar que el cliente_id esté establecido
+    if (!trabajo.value.cliente_id) {
+      console.error('No hay cliente_id establecido:', trabajo.value);
+      mostrarMensaje('Debe seleccionar o crear un cliente', true);
+      return;
     }
 
     // Actualizar estado de pago basado en el monto pagado
@@ -426,6 +472,8 @@ const guardarCotizacion = async () => {
       monto_pagado: parseFloat(trabajo.value.monto_pagado),
       saldo_pendiente: parseFloat(trabajo.value.saldo_pendiente)
     };
+
+    console.log('Datos del trabajo a guardar:', trabajoData);
 
     // Enviar a la API
     const response = await createTrabajo(trabajoData);

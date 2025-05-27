@@ -75,7 +75,10 @@ const crearCliente = async (req, res) => {
       telefono: telefono || null
     });
     
-    res.status(201).json(nuevoCliente);
+    res.status(201).json({
+      success: true,
+      data: nuevoCliente
+    });
   } catch (error) {
     console.error('Error al crear cliente:', error);
     res.status(500).json({ 

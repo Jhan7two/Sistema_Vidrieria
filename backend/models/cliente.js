@@ -9,17 +9,36 @@ const Cliente = sequelize.define('Cliente', {
   },
   nombre: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: false,
+    validate: {
+      len: [2, 100]
+    }
   },
   telefono: {
     type: DataTypes.STRING(20),
-    allowNull: true
+    allowNull: true,
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'clientes',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['nombre']
+    },
+    {
+      fields: ['telefono']
+    }
+  ]
 });
 
 module.exports = Cliente;

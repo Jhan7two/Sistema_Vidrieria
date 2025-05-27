@@ -2,17 +2,26 @@ const Venta = require('../models/venta');
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { ajustarFechaBolivia, crearFechaBolivia, formatearFechaBolivia } = require('../utils/fechas');
 
 // Obtener todas las ventas
 exports.getVentas = async (req, res) => {
   try {
     const ventas = await Venta.findAll({
-      order: [['fecha', 'DESC']]
+      order: [['fecha', 'DESC']],
+      raw: true
     });
+    
+    // Formatear fechas para la respuesta
+    const ventasFormateadas = ventas.map(venta => ({
+      ...venta,
+      fecha: formatearFechaBolivia(venta.fecha),
+      monto: parseFloat(venta.monto)
+    }));
     
     res.json({
       success: true,
-      data: ventas
+      data: ventasFormateadas
     });
   } catch (error) {
     console.error('Error al obtener ventas:', error);
@@ -28,8 +37,8 @@ exports.getVentas = async (req, res) => {
 exports.getVentasDelMes = async (req, res) => {
   try {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const firstDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
 
     const ventas = await Venta.findAll({
       where: {
@@ -37,48 +46,59 @@ exports.getVentasDelMes = async (req, res) => {
           [Op.between]: [firstDay, lastDay]
         }
       },
-      order: [['fecha', 'ASC']]
+      order: [['fecha', 'ASC']],
+      raw: true
     });
 
-    const totalMes = ventas.reduce((sum, v) => sum + parseFloat(v.monto), 0);
+    const totalMes = ventas.reduce((sum, v) => sum + parseFloat(v.monto || 0), 0);
+    
+    const ventasFormateadas = ventas.map(v => ({
+      dia: formatearFechaBolivia(v.fecha),
+      monto: parseFloat(v.monto || 0),
+      descripcion: v.descripcion
+    }));
+
     res.json({
-      totalMes: Number.isNaN(totalMes) ? 0 : totalMes,
-      ventas: Array.isArray(ventas) ? ventas.map(v => ({
-        dia: v.fecha,
-        monto: v.monto,
-        descripcion: v.descripcion
-      })) : []
-    });
-    console.log("Respuesta enviada desde getVentasDelMes:", {
-      totalMes: Number.isNaN(totalMes) ? 0 : totalMes,
-      ventas: Array.isArray(ventas) ? ventas.map(v => ({
-        dia: v.fecha,
-        monto: v.monto,
-        descripcion: v.descripcion
-      })) : []
+      totalMes: parseFloat(totalMes.toFixed(2)),
+      ventas: ventasFormateadas
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener ventas del mes', details: error.message });
+    console.error('Error al obtener ventas del mes:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener ventas del mes',
+      error: error.message 
+    });
   }
 };
 
 // Obtener estadísticas generales de ventas
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalVentas = await Venta.count();
-    const totalIngresos = await Venta.sum('monto');
+    const [totalVentas, totalIngresos] = await Promise.all([
+      Venta.count(),
+      Venta.sum('monto')
+    ]);
+
     res.json({
+      success: true,
       totalVentas,
-      totalIngresos
+      totalIngresos: parseFloat(totalIngresos || 0).toFixed(2)
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener estadísticas de ventas', details: error.message });
+    console.error('Error al obtener estadísticas de ventas:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener estadísticas de ventas',
+      error: error.message 
+    });
   }
 };
 
 // Crear nueva venta
 exports.createVenta = async (req, res) => {
   const transaction = await sequelize.transaction();
+  
   try {
     const { 
       fecha, 
@@ -92,18 +112,17 @@ exports.createVenta = async (req, res) => {
     } = req.body;
     
     // Validar datos
-    if (!monto || isNaN(parseFloat(monto)) || parseFloat(monto) <= 0) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'El monto debe ser un número positivo' 
-      });
+    const montoNumerico = parseFloat(monto);
+    if (!monto || isNaN(montoNumerico) || montoNumerico <= 0) {
+      throw new Error('El monto debe ser un número positivo');
     }
     
-    // Crear la venta
+    // Crear la venta con fecha ajustada a Bolivia
+    const fechaVenta = fecha ? ajustarFechaBolivia(new Date(fecha)) : crearFechaBolivia();
+    
     const venta = await Venta.create({
-      fecha: fecha || new Date(),
-      monto,
+      fecha: fechaVenta,
+      monto: montoNumerico.toFixed(2),
       tipo: tipo || 'venta completa',
       descripcion,
       cliente_id,
@@ -113,46 +132,52 @@ exports.createVenta = async (req, res) => {
     
     // Obtener el último saldo de caja
     const ultimoMovimiento = await Caja.findOne({
-      order: [['id', 'DESC']]
-    }, { transaction });
+      order: [['id', 'DESC']],
+      transaction
+    });
     
     const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
-    const montoNumerico = parseFloat(monto);
-    const nuevoSaldo = saldoActual + montoNumerico;
+    const nuevoSaldo = parseFloat((saldoActual + montoNumerico).toFixed(2));
     
     // Obtener el ID del usuario que está realizando la operación
-    const usuarioId = req.user ? req.user.id : 1; // Si no hay usuario en la sesión, usar ID 1 por defecto
+    const usuarioId = req.user ? req.user.id : 1;
     
     // Registrar el movimiento en la tabla caja
     await Caja.create({
-      fecha_hora: new Date(),
+      fecha_hora: fechaVenta,
       tipo_movimiento: 'entrada',
       concepto: tipo === 'adelanto' ? 'Adelanto' : 
                 tipo === 'pago final' ? 'Pago final' : 
                 'Venta completa',
-      monto: montoNumerico,
+      monto: montoNumerico.toFixed(2),
       saldo_resultante: nuevoSaldo,
       descripcion: descripcion || 'Venta registrada',
       referencia_id: venta.id,
       tipo_referencia: 'venta',
-      forma_pago: forma_pago,
+      forma_pago,
       usuario_id: usuarioId,
       observaciones: `Venta ID: ${venta.id}${trabajo_id ? `, Trabajo ID: ${trabajo_id}` : ''}`
     }, { transaction });
     
     await transaction.commit();
     
+    // Formatear la respuesta
+    const ventaFormateada = {
+      ...venta.toJSON(),
+      fecha: formatearFechaBolivia(venta.fecha),
+      monto: parseFloat(venta.monto)
+    };
+    
     res.status(201).json({
       success: true,
-      data: venta
+      data: ventaFormateada
     });
   } catch (error) {
     await transaction.rollback();
     console.error('Error al crear venta:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error al crear venta',
-      error: error.message 
+      message: error.message || 'Error al crear venta'
     });
   }
 };

@@ -41,7 +41,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(morgan('dev'));
+app.use(morgan(''));
 
 // Middleware para verificar cookies y tokens en cada solicitud
 app.use((req, res, next) => {

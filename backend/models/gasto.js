@@ -12,7 +12,7 @@ const Gasto = sequelize.define('Gasto', {
     allowNull: false
   },
   monto: {
-    type: DataTypes.DECIMAL(10,2),
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
   descripcion: {
@@ -22,12 +22,28 @@ const Gasto = sequelize.define('Gasto', {
   categoria: {
     type: DataTypes.STRING(50),
     allowNull: true
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'gastos',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['fecha']
+    },
+    {
+      fields: ['categoria']
+    }
+  ]
 });
 
 module.exports = Gasto;

@@ -4,9 +4,13 @@ const User = require('../models/user');
 
 // Generar token JWT
 const generateToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado en las variables de entorno');
+  }
+  
   return jwt.sign(
     { id: user.id, username: user.nombre_usuario, role: user.rol },
-    process.env.JWT_SECRET || 'sistema_vidrieria_secret_key',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '2d' }
   );
 };

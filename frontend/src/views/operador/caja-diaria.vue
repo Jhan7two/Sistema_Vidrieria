@@ -332,7 +332,8 @@ export default {
         
         // Cargar movimientos diarios
         const dataMovimientos = await getMovimientosDiarios();
-        this.movimientos = dataMovimientos.movimientos || [];
+        console.log('Movimientos recibidos:', dataMovimientos); // Para debug
+        this.movimientos = Array.isArray(dataMovimientos.movimientos) ? dataMovimientos.movimientos : [];
         
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
