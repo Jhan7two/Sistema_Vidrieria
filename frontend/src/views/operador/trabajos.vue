@@ -96,6 +96,11 @@
                 <button class="p-1 rounded hover:bg-purple-100" title="Cambiar Estado" @click="abrirModalEstado(trabajo)">
                   <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                 </button>
+                <button class="p-1 rounded hover:bg-blue-100" title="Cambiar Estado de Pago" @click="abrirModalPago(trabajo)">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
               </td>
             </tr>
             <tr v-if="trabajosPaginados.length === 0">
@@ -161,6 +166,40 @@
       @cerrar="cerrarModalEditar"
       @guardar="guardarTrabajo"
     />
+    <!-- Modal para cambiar estado de pago -->
+    <div v-if="modalPago.visible" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div class="bg-white rounded shadow-lg p-6 w-96 relative">
+        <h2 class="text-lg font-bold mb-4">Cambiar Estado de Pago</h2>
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">Trabajo #{{ modalPago.trabajo?.id }}</p>
+          <p class="text-sm text-gray-600">Costo Total: {{ formatCurrency(modalPago.trabajo?.costo_total) }}</p>
+          <p class="text-sm text-gray-600">Monto Pagado: {{ formatCurrency(modalPago.trabajo?.monto_pagado) }}</p>
+          <p class="text-sm text-gray-600">Saldo Pendiente: {{ formatCurrency(modalPago.trabajo?.saldo_pendiente) }}</p>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Nuevo Estado de Pago</label>
+          <select v-model="modalPago.nuevoEstado" class="border rounded px-2 py-1 w-full">
+            <option value="Pendiente">Pendiente</option>
+            <option value="Parcial">Parcial</option>
+            <option value="Pagado">Pagado</option>
+          </select>
+        </div>
+        <div v-if="modalPago.nuevoEstado === 'Parcial'" class="mb-4">
+          <label class="block text-sm font-medium mb-2">Monto a Pagar</label>
+          <input 
+            type="number" 
+            v-model="modalPago.montoPago" 
+            class="border rounded px-2 py-1 w-full"
+            :max="modalPago.trabajo?.saldo_pendiente"
+            step="0.01"
+          />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400" @click="cerrarModalPago">Cancelar</button>
+          <button class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700" @click="confirmarCambioPago">Guardar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -185,6 +224,12 @@ const error = ref(null)
 const modalDetalles = ref({ visible: false, trabajo: null })
 const modalEditar = ref({ visible: false, trabajo: null })
 const menuAbierto = ref(null)
+const modalPago = ref({ 
+  visible: false, 
+  trabajo: null, 
+  nuevoEstado: 'Pendiente',
+  montoPago: 0
+})
 
 // Cargar trabajos al iniciar el componente
 onMounted(async () => {
@@ -416,6 +461,46 @@ function handleClickOutside(event) {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
+function abrirModalPago(trabajo) {
+  modalPago.value = {
+    visible: true,
+    trabajo: trabajo,
+    nuevoEstado: trabajo.estado_pago,
+    montoPago: 0
+  }
+}
+function cerrarModalPago() {
+  modalPago.value.visible = false
+  modalPago.value.trabajo = null
+  modalPago.value.nuevoEstado = 'Pendiente'
+  modalPago.value.montoPago = 0
+}
+async function confirmarCambioPago() {
+  try {
+    const trabajo = modalPago.value.trabajo
+    const nuevoEstado = modalPago.value.nuevoEstado
+    let montoPagado = trabajo.monto_pagado
+
+    if (nuevoEstado === 'Parcial') {
+      montoPagado += Number(modalPago.value.montoPago)
+    } else if (nuevoEstado === 'Pagado') {
+      montoPagado = trabajo.costo_total
+    }
+
+    const trabajoActualizado = {
+      ...trabajo,
+      estado_pago: nuevoEstado,
+      monto_pagado: montoPagado
+    }
+
+    await updateTrabajo(trabajo.id, trabajoActualizado)
+    await cargarTrabajos()
+    cerrarModalPago()
+  } catch (error) {
+    console.error('Error al actualizar el estado de pago:', error)
+    // Aquí podrías mostrar un mensaje de error al usuario
+  }
+}
 </script>
 
 <style scoped>

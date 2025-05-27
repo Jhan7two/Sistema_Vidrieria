@@ -77,10 +77,54 @@
              style="background: linear-gradient(90deg, #2563eb 80%, #1e40af 100%);">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4" /></svg>
           <h3 class="text-lg font-semibold text-white flex-1">Registrar Cobro de Trabajo</h3>
-          <button @click="buscarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 ml-4">Buscar Trabajos</button>
+          <button @click="buscarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 ml-4">
+            {{ mostrarBusquedaTrabajos ? 'Ver Trabajos Recientes' : 'Buscar Otros Trabajos' }}
+          </button>
         </div>
       </div>
-      <div v-if="mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-b-xl shadow mb-4">
+
+      <!-- Lista de trabajos recientes -->
+      <div v-if="!mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
+        <h4 class="font-semibold mb-4">Trabajos Recientes Pendientes de Pago</h4>
+        <div v-if="trabajosRecientes.length > 0" class="overflow-x-auto">
+          <table class="min-w-full bg-white">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="px-4 py-2">ID</th>
+                <th class="px-4 py-2">Cliente</th>
+                <th class="px-4 py-2">Descripción</th>
+                <th class="px-4 py-2">Costo Total</th>
+                <th class="px-4 py-2">Pagado</th>
+                <th class="px-4 py-2">Pendiente</th>
+                <th class="px-4 py-2">Estado Pago</th>
+                <th class="px-4 py-2">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="trabajo in trabajosRecientes" :key="trabajo.id" class="border-b">
+                <td class="px-4 py-2">{{ trabajo.id }}</td>
+                <td class="px-4 py-2">{{ trabajo.cliente }}</td>
+                <td class="px-4 py-2">{{ trabajo.descripcion }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.costo_total) }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.monto_pagado) }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.saldo_pendiente) }}</td>
+                <td class="px-4 py-2">
+                  <span :class="estadoPagoClase(trabajo.estado_pago)">{{ trabajo.estado_pago }}</span>
+                </td>
+                <td class="px-4 py-2">
+                  <button @click="seleccionarTrabajo(trabajo)" class="bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-700">Seleccionar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="text-center py-4 text-gray-500">
+          No hay trabajos recientes pendientes de pago.
+        </div>
+      </div>
+
+      <!-- Búsqueda de trabajos -->
+      <div v-if="mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1">Buscar por cliente o ID</label>
           <div class="flex gap-2">
@@ -345,6 +389,7 @@ export default {
       resumenCierre: {},
       paginaActual: 1,
       itemsPorPagina: 10,
+      trabajosRecientes: [],
     }
   },
   computed: {
@@ -462,6 +507,14 @@ export default {
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
+        
+        // Cargar trabajos recientes pendientes de pago
+        const response = await buscarTrabajosPorCobrar("");
+        if (response && response.trabajos) {
+          this.trabajosRecientes = response.trabajos
+            .filter(t => t.estado_pago !== 'Pagado')
+            .slice(0, 5); // Tomar solo los 5 más recientes
+        }
         
       } catch (error) {
         console.error("Error al cargar datos:", error);
