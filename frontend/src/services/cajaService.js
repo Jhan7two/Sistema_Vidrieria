@@ -45,8 +45,16 @@ export async function getMovimientosDiarios() {
 
       // Ordenar movimientos por fecha (más recientes primero)
       response.movimientos.sort((a, b) => {
-        if (!a.fecha_hora || !b.fecha_hora) return 0;
-        return b.fecha_hora - a.fecha_hora;
+        // Si alguno no tiene fecha, lo ponemos al final
+        if (!a.fecha_hora) return 1;
+        if (!b.fecha_hora) return -1;
+        
+        // Convertir a timestamps para comparación
+        const timestampA = a.fecha_hora.getTime();
+        const timestampB = b.fecha_hora.getTime();
+        
+        // Ordenar de más reciente a más antiguo
+        return timestampB - timestampA;
       });
     }
     

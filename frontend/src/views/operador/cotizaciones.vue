@@ -224,6 +224,7 @@ import { useRouter } from 'vue-router';
 import { getAllClientes, buscarClientes, createCliente } from '../../services/clienteService';
 import { createTrabajo } from '../../services/trabajoService';
 import { createVenta } from '../../services/ventasService';
+import { registrarMovimiento } from '../../services/cajaService';
 
 const router = useRouter();
 
@@ -498,7 +499,7 @@ const guardarCotizacion = async () => {
       throw new Error('Error al obtener el ID del trabajo creado');
     }
     
-    // Si hay un anticipo, registrar como venta
+    // Si hay un anticipo, registrar como venta y en caja
     if (pagado > 0) {
       const ventaData = {
         fecha: new Date().toISOString().split('T')[0],
@@ -510,11 +511,25 @@ const guardarCotizacion = async () => {
       };
       
       try {
+        // Registrar la venta
         const ventaResponse = await createVenta(ventaData);
         console.log('Respuesta de la venta creada:', ventaResponse);
+
+        // Registrar el movimiento en caja
+        const movimientoCaja = {
+          tipo_movimiento: 'entrada',
+          concepto: `Anticipo trabajo #${trabajoId}`,
+          monto: pagado,
+          descripcion: `Anticipo para trabajo #${trabajoId} - ${ventaData.tipo}`,
+          forma_pago: 'efectivo', // Por defecto, se puede modificar según necesidad
+          referencia: `Trabajo #${trabajoId}`
+        };
+
+        await registrarMovimiento(movimientoCaja);
+        console.log('Movimiento en caja registrado:', movimientoCaja);
       } catch (error) {
-        console.error('Error al registrar la venta del anticipo:', error);
-        // No interrumpimos el flujo si falla el registro de la venta
+        console.error('Error al registrar la venta o el movimiento en caja:', error);
+        // No interrumpimos el flujo si falla el registro de la venta o el movimiento
       }
     }
     
