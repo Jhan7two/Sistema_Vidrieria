@@ -56,11 +56,19 @@ exports.getMovimientosDiarios = async (req, res) => {
       ]
     });
     
-    // Formatear fechas para mostrar
-    const movimientosFormateados = movimientos.map(mov => ({
-      ...mov.toJSON(),
-      fecha_hora: formatearFechaBolivia(mov.fecha_hora)
-    }));
+    // Formatear fechas y montos para mostrar
+    const movimientosFormateados = movimientos.map(mov => {
+      // Asegurarnos de que los montos sean números
+      const monto = parseFloat(mov.monto);
+      const saldo = parseFloat(mov.saldo_resultante);
+      
+      return {
+        ...mov.toJSON(),
+        fecha_hora: formatearFechaBolivia(mov.fecha_hora),
+        monto: isNaN(monto) ? '0.00' : monto.toFixed(2),
+        saldo_resultante: isNaN(saldo) ? '0.00' : saldo.toFixed(2)
+      };
+    });
     
     res.json({
       movimientos: movimientosFormateados
@@ -103,7 +111,7 @@ exports.registrarMovimiento = async (req, res) => {
     }
     
     // Formatear montos
-    const montoNumerico = parseFloat(monto).toFixed(2);
+    const montoNumerico = parseFloat(monto);
     if (isNaN(montoNumerico) || montoNumerico <= 0) {
       throw new Error('El monto debe ser un número positivo');
     }
@@ -114,10 +122,29 @@ exports.registrarMovimiento = async (req, res) => {
       transaction
     });
     
-    const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
-    const nuevoSaldo = parseFloat(
-      tipo_movimiento === 'entrada' ? saldoActual + montoNumerico : saldoActual - montoNumerico
-    ).toFixed(2);
+    // Asegurarnos de que el saldo actual sea un número
+    let saldoActual = 0;
+    if (ultimoMovimiento) {
+      const saldoStr = ultimoMovimiento.saldo_resultante.toString();
+      saldoActual = parseFloat(saldoStr);
+      if (isNaN(saldoActual)) {
+        console.error('Error: saldo_resultante no es un número válido:', ultimoMovimiento.saldo_resultante);
+        saldoActual = 0;
+      }
+    }
+    
+    // Calcular nuevo saldo
+    let nuevoSaldo = 0;
+    if (tipo_movimiento === 'entrada') {
+      nuevoSaldo = saldoActual + montoNumerico;
+    } else {
+      nuevoSaldo = saldoActual - montoNumerico;
+    }
+    
+    // Asegurarnos de que el nuevo saldo sea un número válido
+    if (isNaN(nuevoSaldo)) {
+      throw new Error('Error al calcular el nuevo saldo');
+    }
     
     // Verificar que el usuario existe
     const usuarioId = req.user ? req.user.id : 1;
@@ -137,6 +164,7 @@ exports.registrarMovimiento = async (req, res) => {
     // Crear movimiento con fecha ajustada a Bolivia
     const fecha_hora = crearFechaBolivia();
     
+    // Crear el movimiento con valores numéricos
     const movimiento = await Caja.create({
       fecha_hora,
       tipo_movimiento,

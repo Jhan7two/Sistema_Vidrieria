@@ -266,6 +266,8 @@
 import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo, verificarCierreDiario } from '../../services/cajaService';
 import { buscarTrabajosPorCobrar } from '../../services/cajaService';
 import { createCobro } from '../../services/cobroService';
+import { formatTimeHHMM, formatDateDDMMHHMM } from '../../utils/dateUtils';
+
 export default {
   name: 'CajaDiaria',
   data() {
@@ -388,14 +390,29 @@ export default {
     },
     formatCurrency(value) {
       if (typeof value !== 'number') {
-        return value || '-';
+        value = parseFloat(value);
+        if (isNaN(value)) return '-';
       }
       return '$' + value.toFixed(2);
     },
     formatDate(date) {
       if (!date) return '-';
-      const d = new Date(date);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      try {
+        // Si la fecha es un string en formato "DD/MM/YYYY, HH:mm:ss"
+        if (typeof date === 'string' && date.includes('/')) {
+          const [datePart, timePart] = date.split(', ');
+          const [day, month, year] = datePart.split('/');
+          const [hours, minutes] = timePart.split(':');
+          const dateObj = new Date(year, month - 1, day, hours, minutes);
+          return formatTimeHHMM(dateObj);
+        }
+        
+        // Para otros formatos, usar la utilidad directamente
+        return formatTimeHHMM(date);
+      } catch (error) {
+        console.error('Error al formatear fecha:', error, 'Fecha recibida:', date);
+        return '-';
+      }
     },
     // Métodos para la sección de cobros de trabajos
     buscarTrabajos() {
@@ -660,18 +677,28 @@ export default {
     
     formatFechaCompleta(fecha) {
       if (!fecha) return '-';
-      const d = new Date(fecha);
-      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      try {
+        return formatDateDDMMHHMM(fecha);
+      } catch (error) {
+        console.error('Error al formatear fecha completa:', error);
+        return '-';
+      }
     },
     calcularTotalEntradas() {
       return this.movimientos
         .filter(mov => mov.tipo_movimiento === 'entrada')
-        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+        .reduce((total, mov) => {
+          const monto = typeof mov.monto === 'string' ? parseFloat(mov.monto) : mov.monto;
+          return total + (isNaN(monto) ? 0 : monto);
+        }, 0);
     },
     calcularTotalSalidas() {
       return this.movimientos
         .filter(mov => mov.tipo_movimiento === 'salida')
-        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+        .reduce((total, mov) => {
+          const monto = typeof mov.monto === 'string' ? parseFloat(mov.monto) : mov.monto;
+          return total + (isNaN(monto) ? 0 : monto);
+        }, 0);
     },
     async verificarCierreDiario() {
       try {

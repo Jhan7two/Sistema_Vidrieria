@@ -1,4 +1,5 @@
 import apiClient from "./api";
+import { convertToBoliviaTime } from "../utils/dateUtils";
 
 /**
  * Obtiene los movimientos de caja del día actual
@@ -8,6 +9,48 @@ export async function getMovimientosDiarios() {
   try {
     const response = await apiClient.get("/caja/movimientos/diarios");
     console.log('Respuesta del servidor:', response); // Para debug
+    
+    // Procesar las fechas y montos en los movimientos
+    if (response.data && Array.isArray(response.data.movimientos)) {
+      response.data.movimientos = response.data.movimientos.map(mov => {
+        let fechaProcesada = null;
+        
+        // Procesar la fecha
+        if (mov.fecha_hora) {
+          try {
+            if (typeof mov.fecha_hora === 'string' && mov.fecha_hora.includes('/')) {
+              const [datePart, timePart] = mov.fecha_hora.split(', ');
+              const [day, month, year] = datePart.split('/');
+              const [hours, minutes] = timePart.split(':');
+              fechaProcesada = new Date(year, month - 1, day, hours, minutes);
+            } else {
+              fechaProcesada = new Date(mov.fecha_hora);
+            }
+            fechaProcesada = convertToBoliviaTime(fechaProcesada);
+          } catch (error) {
+            console.error('Error procesando fecha:', error, 'Fecha original:', mov.fecha_hora);
+          }
+        }
+
+        // Asegurar que los montos sean números
+        const monto = typeof mov.monto === 'string' ? parseFloat(mov.monto) : mov.monto;
+        const saldoResultante = typeof mov.saldo_resultante === 'string' ? parseFloat(mov.saldo_resultante) : mov.saldo_resultante;
+        
+        return {
+          ...mov,
+          fecha_hora: fechaProcesada,
+          monto: monto,
+          saldo_resultante: saldoResultante
+        };
+      });
+
+      // Ordenar movimientos por fecha (más recientes primero)
+      response.data.movimientos.sort((a, b) => {
+        if (!a.fecha_hora || !b.fecha_hora) return 0;
+        return b.fecha_hora - a.fecha_hora;
+      });
+    }
+    
     return response;
   } catch (error) {
     console.error("ERROR en getMovimientosDiarios:", error);
@@ -108,11 +151,32 @@ export async function buscarTrabajosPorCobrar(termino) {
  */
 export async function registrarCobroTrabajo(cobro) {
   try {
-    if (cobro.monto && typeof cobro.monto === 'string') {
-      cobro.monto = parseFloat(cobro.monto);
+    // Validación de datos
+    if (!cobro || !cobro.trabajo_id) {
+      throw new Error('Datos del cobro incompletos');
     }
+
+    // Asegurar que el monto sea un número válido
+    if (cobro.monto) {
+      cobro.monto = parseFloat(cobro.monto);
+      if (isNaN(cobro.monto)) {
+        throw new Error('El monto debe ser un número válido');
+      }
+    }
+
+    // Validar método de pago
+    if (!cobro.metodo_pago) {
+      cobro.metodo_pago = 'efectivo'; // valor por defecto
+    }
+
+    console.log('Enviando datos del cobro:', cobro);
     const response = await apiClient.post("/cobros", cobro);
-    return response;
+    
+    if (!response || !response.data) {
+      throw new Error('Respuesta inválida del servidor');
+    }
+
+    return response.data;
   } catch (error) {
     console.error("ERROR en registrarCobroTrabajo:", error);
     throw new Error(error.response?.data?.message || 'Error al registrar el cobro');
