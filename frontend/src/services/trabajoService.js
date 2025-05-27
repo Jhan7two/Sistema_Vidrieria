@@ -39,8 +39,24 @@ export async function getTrabajoById(id) {
  * @returns {Promise} Promise con los datos del trabajo creado
  */
 export async function createTrabajo(trabajo) {
-  const response = await apiClient.post("/trabajos", trabajo);
-  return response.data;
+  try {
+    console.log('Enviando datos del trabajo a crear:', trabajo);
+    const response = await apiClient.post("/trabajos", trabajo);
+    console.log('Respuesta del servidor:', response);
+    
+    // Asegurarnos de que devolvemos la respuesta completa
+    return response;
+  } catch (error) {
+    console.error('Error en createTrabajo:', error);
+    if (error.response) {
+      console.error('Respuesta de error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No se recibió respuesta del servidor');
+    } else {
+      console.error('Error de configuración:', error.message);
+    }
+    throw error;
+  }
 }
 
 /**

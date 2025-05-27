@@ -84,4 +84,19 @@ export async function getDashboardStats() {
   }
 }
 
+/**
+ * Crea una nueva venta
+ * @param {Object} venta - Datos de la venta a crear
+ * @returns {Promise<Object>} Promise con los datos de la venta creada
+ */
+export async function createVenta(venta) {
+  try {
+    const response = await apiClient.post("/ventas", venta);
+    return response.data;
+  } catch (error) {
+    console.error("Error en createVenta:", error);
+    throw new Error(error.response?.data?.message || 'Error al crear la venta');
+  }
+}
+
 // Puedes agregar aquí más funciones relacionadas a ventas en el futuro

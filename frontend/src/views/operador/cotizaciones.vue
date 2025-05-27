@@ -223,6 +223,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getAllClientes, buscarClientes, createCliente } from '../../services/clienteService';
 import { createTrabajo } from '../../services/trabajoService';
+import { createVenta } from '../../services/ventasService';
 
 const router = useRouter();
 
@@ -477,7 +478,45 @@ const guardarCotizacion = async () => {
 
     // Enviar a la API
     const response = await createTrabajo(trabajoData);
-    console.log('Trabajo guardado:', response);
+    console.log('Respuesta completa del servidor:', response);
+    
+    // Obtener el ID del trabajo de la respuesta
+    let trabajoId;
+    if (response && response.data) {
+      trabajoId = response.data.id;
+      console.log('ID del trabajo obtenido de response.data:', trabajoId);
+    } else if (response && response.id) {
+      trabajoId = response.id;
+      console.log('ID del trabajo obtenido de response:', trabajoId);
+    } else {
+      console.error('Estructura de respuesta inesperada:', response);
+      throw new Error('No se pudo obtener el ID del trabajo de la respuesta del servidor');
+    }
+
+    if (!trabajoId) {
+      console.error('No se pudo obtener el ID del trabajo de la respuesta:', response);
+      throw new Error('Error al obtener el ID del trabajo creado');
+    }
+    
+    // Si hay un anticipo, registrar como venta
+    if (pagado > 0) {
+      const ventaData = {
+        fecha: new Date().toISOString().split('T')[0],
+        monto: pagado,
+        tipo: pagado >= total ? 'venta completa' : 'adelanto',
+        descripcion: `Anticipo para trabajo #${trabajoId}`,
+        cliente_id: trabajo.value.cliente_id,
+        trabajo_id: trabajoId
+      };
+      
+      try {
+        const ventaResponse = await createVenta(ventaData);
+        console.log('Respuesta de la venta creada:', ventaResponse);
+      } catch (error) {
+        console.error('Error al registrar la venta del anticipo:', error);
+        // No interrumpimos el flujo si falla el registro de la venta
+      }
+    }
     
     mostrarMensaje('Cotización guardada correctamente', false);
     router.push('/operador/cotizaciones');
