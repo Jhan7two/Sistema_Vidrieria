@@ -178,7 +178,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="mov in vista === 'movimientos' ? movimientos : cobros" :key="mov.id" class="border-b">
+            <tr v-for="mov in vista === 'movimientos' ? movimientosPaginados : cobrosPaginados" :key="mov.id" class="border-b">
               <td class="px-4 py-2">{{ formatDate(mov.fecha_hora || mov.fecha) }}</td>
               <td :class="[mov.tipo_movimiento === 'entrada' || mov.tipo_referencia === 'cobro' ? 'entrada' : 'salida', 'px-4 py-2']">
                 {{ mov.tipo_movimiento || mov.tipo_referencia }}
@@ -189,11 +189,45 @@
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : (mov.metodo_pago || mov.tipo_pago) }}</td>
               <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
             </tr>
-            <tr v-if="(vista === 'movimientos' && movimientos.length === 0) || (vista === 'cobros' && cobros.length === 0)">
-              <td :colspan="vista === 'cobros' ? 6 : 5" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
+            <tr v-if="(vista === 'movimientos' && movimientosPaginados.length === 0) || (vista === 'cobros' && cobrosPaginados.length === 0)">
+              <td :colspan="vista === 'cobros' ? 7 : 6" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginación -->
+      <div v-if="(vista === 'movimientos' && totalPaginasMovimientos > 1) || (vista === 'cobros' && totalPaginasCobros > 1)" class="mt-4 flex justify-between items-center">
+        <div class="text-sm text-gray-700">
+          Mostrando {{ (paginaActual - 1) * itemsPorPagina + 1 }} a {{ Math.min(paginaActual * itemsPorPagina, vista === 'movimientos' ? movimientos.length : cobros.length) }} de {{ vista === 'movimientos' ? movimientos.length : cobros.length }} registros
+        </div>
+        <div class="flex gap-2">
+          <button 
+            @click="paginaActual--" 
+            :disabled="paginaActual === 1"
+            class="px-3 py-1 rounded border"
+            :class="paginaActual === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            Anterior
+          </button>
+          <button 
+            v-for="pagina in paginasAMostrar" 
+            :key="pagina"
+            @click="paginaActual = pagina"
+            class="px-3 py-1 rounded border"
+            :class="pagina === paginaActual ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            {{ pagina }}
+          </button>
+          <button 
+            @click="paginaActual++" 
+            :disabled="paginaActual === (vista === 'movimientos' ? totalPaginasMovimientos : totalPaginasCobros)"
+            class="px-3 py-1 rounded border"
+            :class="paginaActual === (vista === 'movimientos' ? totalPaginasMovimientos : totalPaginasCobros) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
     </div>
     <div class="cierre-dia">
@@ -266,6 +300,7 @@
 import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo, verificarCierreDiario } from '../../services/cajaService';
 import { buscarTrabajosPorCobrar } from '../../services/cajaService';
 import { createCobro } from '../../services/cobroService';
+import { crearGasto } from '../../services/gastosService';
 import { formatTimeHHMM, formatDateDDMMHHMM } from '../../utils/dateUtils';
 
 export default {
@@ -307,41 +342,127 @@ export default {
       mostrarModalCierre: false,
       observacionesCierre: '',
       mostrarResumenCierre: false,
-      resumenCierre: {}
+      resumenCierre: {},
+      paginaActual: 1,
+      itemsPorPagina: 10,
+    }
+  },
+  computed: {
+    totalPaginasMovimientos() {
+      return Math.ceil(this.movimientos.length / this.itemsPorPagina);
+    },
+    totalPaginasCobros() {
+      return Math.ceil(this.cobros.length / this.itemsPorPagina);
+    },
+    movimientosPaginados() {
+      const inicio = (this.paginaActual - 1) * this.itemsPorPagina;
+      const fin = inicio + this.itemsPorPagina;
+      return this.movimientos.slice(inicio, fin);
+    },
+    cobrosPaginados() {
+      const inicio = (this.paginaActual - 1) * this.itemsPorPagina;
+      const fin = inicio + this.itemsPorPagina;
+      return this.cobros.slice(inicio, fin);
+    },
+    paginasAMostrar() {
+      const total = this.vista === 'movimientos' ? this.totalPaginasMovimientos : this.totalPaginasCobros;
+      const actual = this.paginaActual;
+      const paginas = [];
+      
+      // Siempre mostrar primera página
+      paginas.push(1);
+      
+      // Calcular páginas alrededor de la actual
+      for (let i = Math.max(2, actual - 1); i <= Math.min(total - 1, actual + 1); i++) {
+        paginas.push(i);
+      }
+      
+      // Siempre mostrar última página si hay más de una
+      if (total > 1) {
+        paginas.push(total);
+      }
+      
+      // Eliminar duplicados y ordenar
+      return [...new Set(paginas)].sort((a, b) => a - b);
+    }
+  },
+  watch: {
+    vista() {
+      // Resetear a la primera página cuando cambia la vista
+      this.paginaActual = 1;
+    },
+    movimientos() {
+      // Resetear a la primera página cuando cambian los movimientos
+      if (this.vista === 'movimientos') {
+        this.paginaActual = 1;
+      }
+    },
+    cobros() {
+      // Resetear a la primera página cuando cambian los cobros
+      if (this.vista === 'cobros') {
+        this.paginaActual = 1;
+      }
     }
   },
   mounted() {
     // Cargar datos iniciales
     this.cargarDatos();
-    // Verificar si ya existe un cierre para el día actual
-    this.verificarCierreDiario();
   },
   methods: {
     async cargarDatos() {
       try {
         this.cargando = true;
+        this.error = null;
+        this.mensaje = null;
         
         // Verificar si ya existe un cierre para el día actual
         const verificacion = await verificarCierreDiario();
+        
+        // Si hay un cierre existente, verificar si es de hoy
         if (verificacion.existeCierre) {
-          this.cerrado = true;
-          this.saldo = 0; // Forzar saldo a 0 si hay cierre
+          const fechaCierre = new Date(verificacion.cierre.fecha);
+          const hoy = new Date();
+          
+          // Si el cierre es de hoy, mantener el estado cerrado
+          if (fechaCierre.toDateString() === hoy.toDateString()) {
+            this.cerrado = true;
+            this.saldo = 0;
+            this.movimientos = [];
+            this.cobros = [];
+            this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${verificacion.cierre.id}`;
+            return;
+          } else {
+            // Si el cierre es de otro día, reiniciar el estado
+            this.cerrado = false;
+            this.movimientos = [];
+            this.cobros = [];
+          }
         } else {
-          // Cargar saldo actual solo si no hay cierre
-          const dataSaldo = await getSaldoActual();
-          this.saldo = parseFloat(dataSaldo.saldo) || 0;
+          // Si no hay cierre, reiniciar el estado
+          this.cerrado = false;
         }
+        
+        // Cargar saldo actual
+        const dataSaldo = await getSaldoActual();
+        this.saldo = parseFloat(dataSaldo.saldo) || 0;
         
         // Cargar movimientos diarios
         const dataMovimientos = await getMovimientosDiarios();
-        this.movimientos = Array.isArray(dataMovimientos.movimientos) ? dataMovimientos.movimientos : [];
+        if (dataMovimientos && Array.isArray(dataMovimientos.movimientos)) {
+          // Ordenar movimientos por fecha (más recientes primero)
+          this.movimientos = dataMovimientos.movimientos.sort((a, b) => {
+            const fechaA = new Date(a.fecha_hora || a.fecha);
+            const fechaB = new Date(b.fecha_hora || b.fecha);
+            return fechaB - fechaA;
+          });
+        } else {
+          this.movimientos = [];
+        }
         
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
         
-        // Limpiar mensajes de error si todo salió bien
-        this.error = null;
       } catch (error) {
         console.error("Error al cargar datos:", error);
         this.error = "Error al cargar datos. Intente nuevamente.";
@@ -354,26 +475,43 @@ export default {
         this.cargando = true;
         const movimiento = tipo === 'entrada' ? this.nuevoIngreso : this.nuevoEgreso;
         
-        // Preparar datos para enviar al backend
-        const datos = {
-          tipo_movimiento: tipo,
-          concepto: movimiento.concepto,
-          monto: movimiento.monto,
-          descripcion: movimiento.descripcion,
-          forma_pago: movimiento.forma_pago
-        };
-        
-        // Llamar al servicio
-        const response = await registrarMovimiento(datos);
-        
-        // Actualizar la vista
-        if (response && response.movimiento) {
-          this.movimientos.unshift(response.movimiento);
-          // Actualizar el saldo inmediatamente
-          this.saldo = parseFloat(response.movimiento.saldo_resultante) || 0;
+        if (tipo === 'entrada') {
+          // Preparar datos para ingreso
+          const datos = {
+            tipo_movimiento: tipo,
+            concepto: movimiento.concepto,
+            monto: movimiento.monto,
+            descripcion: movimiento.descripcion,
+            forma_pago: movimiento.forma_pago
+          };
           
-          // Mostrar mensaje de éxito
-          this.mostrarMensajeExito("Movimiento registrado exitosamente");
+          // Llamar al servicio de caja para ingresos
+          const response = await registrarMovimiento(datos);
+          
+          if (response && response.movimiento) {
+            this.movimientos.unshift(response.movimiento);
+            this.saldo = parseFloat(response.movimiento.saldo_resultante) || 0;
+            this.mostrarMensajeExito("Ingreso registrado exitosamente");
+          }
+        } else {
+          // Preparar datos para gasto
+          const datosGasto = {
+            fecha: new Date().toISOString().split('T')[0],
+            monto: movimiento.monto,
+            descripcion: movimiento.descripcion,
+            categoria: movimiento.concepto,
+            forma_pago: movimiento.forma_pago
+          };
+          
+          // Llamar al servicio de gastos para egresos
+          const response = await crearGasto(datosGasto);
+          
+          if (response && response.data && response.data.movimiento) {
+            // Actualizar la vista con el movimiento de caja
+            this.movimientos.unshift(response.data.movimiento);
+            this.saldo = parseFloat(response.data.movimiento.saldo_resultante) || 0;
+            this.mostrarMensajeExito("Gasto registrado exitosamente");
+          }
         }
         
         // Limpiar formulario
@@ -383,8 +521,6 @@ export default {
           this.nuevoEgreso = { concepto: '', monto: null, descripcion: '', forma_pago: 'efectivo' };
         }
         
-        // Recargar datos para asegurar consistencia
-        await this.cargarDatos();
       } catch (error) {
         console.error("Error al registrar movimiento:", error);
         this.error = error.response?.data?.message || "Error al registrar movimiento.";
@@ -653,11 +789,11 @@ export default {
         this.cerrado = true;
         this.mensaje = "Caja cerrada correctamente";
         
-        // Forzar el saldo a 0 después del cierre (solo en el frontend)
+        // Limpiar datos
         this.saldo = 0;
+        this.movimientos = [];
+        this.cobros = [];
         
-        // Recargar datos para actualizar los movimientos
-        await this.cargarDatos();
       } catch (error) {
         console.error("Error al cerrar día:", error);
         
@@ -705,11 +841,15 @@ export default {
     async verificarCierreDiario() {
       try {
         const response = await verificarCierreDiario();
-        this.cerrado = response.existeCierre;
+        const fechaCierre = response.cierre ? new Date(response.cierre.fecha) : null;
+        const hoy = new Date();
+        
+        // Solo considerar cerrado si el cierre es de hoy
+        this.cerrado = response.existeCierre && fechaCierre && 
+                      fechaCierre.toDateString() === hoy.toDateString();
         
         if (this.cerrado) {
-          const cierre = response.cierre;
-          this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${cierre.id}`;
+          this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${response.cierre.id}`;
         }
       } catch (error) {
         console.error("Error al verificar cierre diario:", error);

@@ -91,16 +91,27 @@ export async function getGastosPorCategoria() {
  */
 export async function crearGasto(gasto) {
   try {
-    // Asegurarse de que el monto sea un número
-    if (gasto.monto) {
-      gasto.monto = parseFloat(gasto.monto);
-      if (isNaN(gasto.monto)) {
-        throw new Error('El monto debe ser un número válido');
-      }
+    // Validar datos requeridos
+    if (!gasto.fecha || !gasto.monto || !gasto.descripcion) {
+      throw new Error('Faltan datos requeridos: fecha, monto y descripción son obligatorios');
     }
+
+    // Preparar los datos del gasto
+    const gastoData = {
+      fecha: new Date(gasto.fecha).toISOString().split('T')[0],
+      monto: parseFloat(gasto.monto),
+      descripcion: gasto.descripcion,
+      categoria: gasto.categoria || 'General',
+      forma_pago: gasto.forma_pago || 'efectivo'
+    };
+
+    const response = await apiClient.post("/gastos", gastoData);
     
-    const response = await apiClient.post("/gastos", gasto);
-    return response.data;
+    if (!response.data) {
+      throw new Error('No se recibió respuesta del servidor');
+    }
+
+    return response;
   } catch (error) {
     console.error("Error en crearGasto:", error);
     throw new Error(error.response?.data?.message || 'Error al crear el gasto');

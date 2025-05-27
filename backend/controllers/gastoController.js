@@ -28,11 +28,32 @@ exports.getGastos = async (req, res) => {
 exports.createGasto = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
+    console.log('Datos recibidos en createGasto:', req.body);
+    
     // Extraer forma_pago del body antes de crear el gasto
     const { forma_pago, ...gastoData } = req.body;
     
-    // Crear el gasto solo con los datos necesarios
-    const gasto = await Gasto.create(gastoData, { transaction });
+    // Asegurarse de que la fecha esté en el formato correcto
+    if (gastoData.fecha) {
+      gastoData.fecha = new Date(gastoData.fecha);
+    }
+    
+    // Asegurarse de que el monto sea un número
+    if (gastoData.monto) {
+      gastoData.monto = parseFloat(gastoData.monto);
+    }
+    
+    console.log('Datos procesados para crear gasto:', gastoData);
+    
+    // Crear el gasto con los datos validados
+    const gasto = await Gasto.create({
+      fecha: gastoData.fecha,
+      monto: gastoData.monto,
+      descripcion: gastoData.descripcion,
+      categoria: gastoData.categoria
+    }, { transaction });
+    
+    console.log('Gasto creado exitosamente:', gasto.toJSON());
     
     // Obtener el último saldo de caja
     const ultimoMovimiento = await Caja.findOne({
@@ -47,7 +68,7 @@ exports.createGasto = async (req, res) => {
     const usuarioId = req.user ? req.user.id : 1;
     
     // Registrar el movimiento en la tabla caja
-    await Caja.create({
+    const movimientoCaja = await Caja.create({
       fecha_hora: new Date(),
       tipo_movimiento: 'salida',
       concepto: req.body.categoria || 'Gasto general',
@@ -65,7 +86,10 @@ exports.createGasto = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      data: gasto
+      data: {
+        gasto: gasto.toJSON(),
+        movimiento: movimientoCaja.toJSON()
+      }
     });
   } catch (error) {
     await transaction.rollback();
