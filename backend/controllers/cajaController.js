@@ -228,9 +228,7 @@ exports.registrarMovimiento = async (req, res) => {
 
 // Realizar cierre de caja
 exports.cerrarCaja = async (req, res) => {
-  const transaction = await sequelize.transaction({
-    isolationLevel: sequelize.Transaction.ISOLATION_LEVELS.READ_COMMITTED
-  });
+  const transaction = await sequelize.transaction();
   
   try {
     const hoy = new Date();
@@ -310,7 +308,7 @@ exports.cerrarCaja = async (req, res) => {
     console.error('Error al cerrar caja:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: error.message || 'Error al cerrar la caja'
     });
   }
 };
