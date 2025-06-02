@@ -179,3 +179,157 @@ exports.getGastosPorCategoria = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener gastos por categoría', details: error.message });
   }
 };
+
+// Editar un gasto
+exports.updateGasto = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      fecha, 
+      monto, 
+      descripcion, 
+      categoria,
+      forma_pago = 'efectivo'
+    } = req.body;
+    
+    // Validar datos
+    const montoNumerico = parseFloat(monto);
+    if (!monto || isNaN(montoNumerico) || montoNumerico <= 0) {
+      throw new Error('El monto debe ser un número positivo');
+    }
+    
+    // Buscar el gasto existente
+    const gastoExistente = await Gasto.findByPk(id, { transaction });
+    if (!gastoExistente) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    // Calcular la diferencia en el monto
+    const diferenciaMonto = parseFloat(gastoExistente.monto) - montoNumerico;
+    
+    // Actualizar el gasto
+    const fechaGasto = fecha ? new Date(fecha) : gastoExistente.fecha;
+    
+    await gastoExistente.update({
+      fecha: fechaGasto,
+      monto: montoNumerico.toFixed(2),
+      descripcion,
+      categoria
+    }, { transaction });
+    
+    // Actualizar el movimiento en caja
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'gasto',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      // Obtener el saldo anterior al movimiento
+      const saldoAnterior = parseFloat(movimientoCaja.saldo_resultante) + parseFloat(movimientoCaja.monto);
+      const nuevoSaldo = parseFloat((saldoAnterior - montoNumerico).toFixed(2));
+      
+      await movimientoCaja.update({
+        fecha_hora: fechaGasto,
+        monto: montoNumerico.toFixed(2),
+        saldo_resultante: nuevoSaldo,
+        descripcion: descripcion || 'Gasto actualizado',
+        forma_pago,
+        observaciones: `Gasto ID: ${id}, ${descripcion}`
+      }, { transaction });
+      
+      // Actualizar saldos de movimientos posteriores
+      await Caja.update(
+        {
+          saldo_resultante: sequelize.literal(`saldo_resultante + ${diferenciaMonto}`)
+        },
+        {
+          where: {
+            id: { [Op.gt]: movimientoCaja.id }
+          },
+          transaction
+        }
+      );
+    }
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: 'Gasto actualizado exitosamente',
+      data: gastoExistente.toJSON()
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al actualizar gasto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al actualizar gasto'
+    });
+  }
+};
+
+// Eliminar un gasto
+exports.deleteGasto = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    
+    // Buscar el gasto
+    const gasto = await Gasto.findByPk(id, { transaction });
+    if (!gasto) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    // Buscar el movimiento en caja asociado
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'gasto',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      const montoGasto = parseFloat(gasto.monto);
+      
+      // Actualizar saldos de movimientos posteriores
+      await Caja.update(
+        {
+          saldo_resultante: sequelize.literal(`saldo_resultante + ${montoGasto}`)
+        },
+        {
+          where: {
+            id: { [Op.gt]: movimientoCaja.id }
+          },
+          transaction
+        }
+      );
+      
+      // Eliminar el movimiento en caja
+      await movimientoCaja.destroy({ transaction });
+    }
+    
+    // Eliminar el gasto
+    await gasto.destroy({ transaction });
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: 'Gasto eliminado exitosamente'
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al eliminar gasto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al eliminar gasto'
+    });
+  }
+};

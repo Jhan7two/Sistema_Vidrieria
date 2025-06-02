@@ -190,10 +190,6 @@
       </div>
       <!-- Botones de Acción -->
       <div class="flex justify-end space-x-4 mt-6">
-        <button type="button" @click="cancelar" 
-                class="px-6 py-2 border rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
-          Cancelar
-        </button>
         <button type="submit" 
                 class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
           Guardar Cotización
@@ -553,10 +549,6 @@ const mostrarMensaje = (texto, esError = false) => {
   setTimeout(() => {
     mensaje.value.visible = false;
   }, 5000);
-};
-
-const cancelar = () => {
-  router.push('/operador/cotizaciones');
 };
 
 // Recibir el costo total desde la cotización

@@ -181,3 +181,167 @@ exports.createVenta = async (req, res) => {
     });
   }
 };
+
+// Editar una venta
+exports.updateVenta = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      fecha, 
+      monto, 
+      tipo, 
+      descripcion, 
+      cliente_id, 
+      trabajo_id, 
+      cobro_id,
+      forma_pago = 'efectivo'
+    } = req.body;
+    
+    // Validar datos
+    const montoNumerico = parseFloat(monto);
+    if (!monto || isNaN(montoNumerico) || montoNumerico <= 0) {
+      throw new Error('El monto debe ser un número positivo');
+    }
+    
+    // Buscar la venta existente
+    const ventaExistente = await Venta.findByPk(id, { transaction });
+    if (!ventaExistente) {
+      throw new Error('Venta no encontrada');
+    }
+    
+    // Calcular la diferencia en el monto
+    const diferenciaMonto = montoNumerico - parseFloat(ventaExistente.monto);
+    
+    // Actualizar la venta
+    const fechaVenta = fecha ? ajustarFechaBolivia(new Date(fecha)) : ventaExistente.fecha;
+    
+    await ventaExistente.update({
+      fecha: fechaVenta,
+      monto: montoNumerico.toFixed(2),
+      tipo: tipo || ventaExistente.tipo,
+      descripcion,
+      cliente_id,
+      trabajo_id,
+      cobro_id
+    }, { transaction });
+    
+    // Actualizar el movimiento en caja
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'venta',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      // Obtener el saldo anterior al movimiento
+      const saldoAnterior = parseFloat(movimientoCaja.saldo_resultante) - parseFloat(movimientoCaja.monto);
+      const nuevoSaldo = parseFloat((saldoAnterior + montoNumerico).toFixed(2));
+      
+      await movimientoCaja.update({
+        fecha_hora: fechaVenta,
+        monto: montoNumerico.toFixed(2),
+        saldo_resultante: nuevoSaldo,
+        descripcion: descripcion || 'Venta actualizada',
+        forma_pago,
+        observaciones: `Venta ID: ${id}${trabajo_id ? `, Trabajo ID: ${trabajo_id}` : ''}`
+      }, { transaction });
+      
+      // Actualizar saldos de movimientos posteriores
+      await Caja.update(
+        {
+          saldo_resultante: sequelize.literal(`saldo_resultante + ${diferenciaMonto}`)
+        },
+        {
+          where: {
+            id: { [Op.gt]: movimientoCaja.id }
+          },
+          transaction
+        }
+      );
+    }
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: 'Venta actualizada exitosamente',
+      data: {
+        ...ventaExistente.toJSON(),
+        fecha: formatearFechaBolivia(ventaExistente.fecha),
+        monto: parseFloat(ventaExistente.monto)
+      }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al actualizar venta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al actualizar venta'
+    });
+  }
+};
+
+// Eliminar una venta
+exports.deleteVenta = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    
+    // Buscar la venta
+    const venta = await Venta.findByPk(id, { transaction });
+    if (!venta) {
+      throw new Error('Venta no encontrada');
+    }
+    
+    // Buscar el movimiento en caja asociado
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'venta',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      const montoVenta = parseFloat(venta.monto);
+      
+      // Actualizar saldos de movimientos posteriores
+      await Caja.update(
+        {
+          saldo_resultante: sequelize.literal(`saldo_resultante - ${montoVenta}`)
+        },
+        {
+          where: {
+            id: { [Op.gt]: movimientoCaja.id }
+          },
+          transaction
+        }
+      );
+      
+      // Eliminar el movimiento en caja
+      await movimientoCaja.destroy({ transaction });
+    }
+    
+    // Eliminar la venta
+    await venta.destroy({ transaction });
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: 'Venta eliminada exitosamente'
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error al eliminar venta:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error al eliminar venta'
+    });
+  }
+};

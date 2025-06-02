@@ -77,6 +77,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+            <th v-if="isAdmin" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -86,6 +87,24 @@
             </td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ venta.descripcion }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatMonto(venta.monto) }}</td>
+            <td v-if="isAdmin" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <button
+                @click="editarVenta(venta)"
+                class="text-primary-600 hover:text-primary-900 mr-3"
+              >
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                @click="confirmarEliminarVenta(venta)"
+                class="text-red-600 hover:text-red-900"
+              >
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -173,6 +192,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+            <th v-if="isAdmin" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -183,6 +203,24 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ gasto.categoria }}</td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ gasto.descripcion }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatMonto(gasto.monto) }}</td>
+            <td v-if="isAdmin" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <button
+                @click="editarGasto(gasto)"
+                class="text-primary-600 hover:text-primary-900 mr-3"
+              >
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                @click="confirmarEliminarGasto(gasto)"
+                class="text-red-600 hover:text-red-900"
+              >
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -260,13 +298,185 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Edición de Venta -->
+    <div v-if="showEditVentaModal" class="fixed z-10 inset-0 overflow-y-auto">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Editar Venta</h3>
+            <form @submit.prevent="guardarVentaEditada">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Fecha</label>
+                <input
+                  type="date"
+                  v-model="ventaEditada.fecha"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Monto</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  v-model="ventaEditada.monto"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Descripción</label>
+                <input
+                  type="text"
+                  v-model="ventaEditada.descripcion"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+            </form>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              @click="guardarVentaEditada"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Guardar
+            </button>
+            <button
+              type="button"
+              @click="showEditVentaModal = false"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Edición de Gasto -->
+    <div v-if="showEditGastoModal" class="fixed z-10 inset-0 overflow-y-auto">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Editar Gasto</h3>
+            <form @submit.prevent="guardarGastoEditado">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Fecha</label>
+                <input
+                  type="date"
+                  v-model="gastoEditado.fecha"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Categoría</label>
+                <input
+                  type="text"
+                  v-model="gastoEditado.categoria"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Monto</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  v-model="gastoEditado.monto"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Descripción</label>
+                <input
+                  type="text"
+                  v-model="gastoEditado.descripcion"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                />
+              </div>
+            </form>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              @click="guardarGastoEditado"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Guardar
+            </button>
+            <button
+              type="button"
+              @click="showEditGastoModal = false"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmación de Eliminación -->
+    <div v-if="showDeleteModal" class="fixed z-10 inset-0 overflow-y-auto">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                  Confirmar eliminación
+                </h3>
+                <div class="mt-2">
+                  <p class="text-sm text-gray-500">
+                    ¿Está seguro que desea eliminar este {{ activeTab === 'ventas' ? 'venta' : 'gasto' }}? Esta acción no se puede deshacer.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              @click="confirmarEliminacion"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Eliminar
+            </button>
+            <button
+              type="button"
+              @click="showDeleteModal = false"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { getHistoricoVentas } from '../services/ventasService'
-import { getHistoricoGastos } from '../services/gastosService'
+import { getHistoricoVentas, updateVenta, deleteVenta } from '../services/ventasService'
+import { getHistoricoGastos, updateGasto, deleteGasto } from '../services/gastosService'
+import { useAuthStore } from '../store/auth'
 
 // Estado local
 const activeTab = ref('ventas')
@@ -284,6 +494,18 @@ const totalPaginas = ref(1)
 // Datos
 const ventas = ref([])
 const gastos = ref([])
+
+// Estado para edición y eliminación
+const showEditVentaModal = ref(false)
+const showEditGastoModal = ref(false)
+const showDeleteModal = ref(false)
+const ventaEditada = ref({})
+const gastoEditado = ref({})
+const itemAEliminar = ref(null)
+
+// Auth store
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAdmin)
 
 // Computed para las páginas a mostrar
 const paginasAMostrar = computed(() => {
@@ -412,5 +634,63 @@ const formatMonto = (monto) => {
   if (monto === null || monto === undefined) return '$0.00';
   const numero = typeof monto === 'string' ? parseFloat(monto) : monto;
   return isNaN(numero) ? '$0.00' : `$${numero.toFixed(2)}`;
+}
+
+// Métodos para edición y eliminación
+const editarVenta = (venta) => {
+  ventaEditada.value = { ...venta }
+  showEditVentaModal.value = true
+}
+
+const editarGasto = (gasto) => {
+  gastoEditado.value = { ...gasto }
+  showEditGastoModal.value = true
+}
+
+const guardarVentaEditada = async () => {
+  try {
+    await updateVenta(ventaEditada.value.id, ventaEditada.value)
+    await cargarDatos()
+    showEditVentaModal.value = false
+  } catch (err) {
+    error.value = 'Error al actualizar la venta'
+    console.error('Error:', err)
+  }
+}
+
+const guardarGastoEditado = async () => {
+  try {
+    await updateGasto(gastoEditado.value.id, gastoEditado.value)
+    await cargarDatos()
+    showEditGastoModal.value = false
+  } catch (err) {
+    error.value = 'Error al actualizar el gasto'
+    console.error('Error:', err)
+  }
+}
+
+const confirmarEliminarVenta = (venta) => {
+  itemAEliminar.value = venta
+  showDeleteModal.value = true
+}
+
+const confirmarEliminarGasto = (gasto) => {
+  itemAEliminar.value = gasto
+  showDeleteModal.value = true
+}
+
+const confirmarEliminacion = async () => {
+  try {
+    if (activeTab.value === 'ventas') {
+      await deleteVenta(itemAEliminar.value.id)
+    } else {
+      await deleteGasto(itemAEliminar.value.id)
+    }
+    await cargarDatos()
+    showDeleteModal.value = false
+  } catch (err) {
+    error.value = 'Error al eliminar el registro'
+    console.error('Error:', err)
+  }
 }
 </script> 

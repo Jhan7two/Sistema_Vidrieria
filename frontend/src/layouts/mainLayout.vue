@@ -128,6 +128,6 @@
   // Función para cerrar sesión
   const logout = () => {
     authStore.logout()
-    router.push('/login')
+    router.push({ name: 'login' })
   }
   </script>

@@ -1,55 +1,46 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
-const config = require('./config');
 
-const sequelize = new Sequelize(
-  config.db.database,
-  config.db.username,
-  config.db.password,
-  {
-    host: config.db.host,
-    port: config.db.port,
-    dialect: 'postgres',
-    logging: console.log, // Habilitado para debug
-    dialectOptions: config.db.dialectOptions,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
+// Verificar variables de entorno necesarias
+const requiredEnvVars = ['DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_NAME', 'DB_PORT'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Error: Faltan variables de entorno necesarias:');
+  missingEnvVars.forEach(varName => console.log(`   - ${varName}`));
+  process.exit(1);
+}
+
+const sequelize = new Sequelize({
+  database: process.env.DB_NAME,
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
     }
-  }
-);
+  },
+  logging: false
+});
 
-// Función de prueba mejorada
-const testConnection = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ Conexión a PostgreSQL en Render establecida correctamente');
-    
-    // Mostrar información de la conexión
-    console.log(`📊 Base de datos: ${config.db.database}`);
-    console.log(`🏠 Host: ${config.db.host}`);
-    console.log(`👤 Usuario: ${config.db.username}`);
-    
-  } catch (error) {
-    console.error('❌ Error al conectar con PostgreSQL:');
-    console.error('Detalles del error:', error.message);
-    
-    // Sugerencias basadas en el tipo de error
-    if (error.message.includes('ECONNREFUSED')) {
-      console.log('💡 Sugerencia: Verifica que el host de Render sea correcto');
-    } else if (error.message.includes('authentication failed')) {
-      console.log('💡 Sugerencia: Verifica usuario y contraseña de Render');
-    } else if (error.message.includes('database') && error.message.includes('does not exist')) {
-      console.log('💡 Sugerencia: Verifica el nombre de la base de datos en Render');
-    } else if (error.message.includes('SSL/TLS')) {
-      console.log('💡 Sugerencia: La configuración SSL es necesaria para Render');
+// Test the connection
+sequelize.authenticate()
+  .then(() => {
+    console.log('✅ Conexión establecida correctamente con Supabase');
+  })
+  .catch(err => {
+    console.error('❌ Error al conectar con la base de datos:', err);
+    if (err.message.includes('SASL')) {
+      console.log('💡 Sugerencia: Verifica que:');
+      console.log('   1. El usuario sea "postgres" (sin el prefijo del proyecto)');
+      console.log('   2. La contraseña no tenga caracteres especiales');
+      console.log('   3. El host sea el correcto (db.xxx.supabase.co)');
+      console.log('   4. El puerto sea 5432');
     }
-  }
-};
-
-// Ejecutar prueba de conexión
-testConnection();
+  });
 
 module.exports = sequelize;

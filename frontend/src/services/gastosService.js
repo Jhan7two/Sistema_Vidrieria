@@ -132,4 +132,49 @@ export async function getDashboardStats() {
   }
 }
 
+/**
+ * Actualiza un gasto existente
+ * @param {number} id - ID del gasto a actualizar
+ * @param {Object} gasto - Datos actualizados del gasto
+ * @returns {Promise<Object>} Promise con los datos del gasto actualizado
+ */
+export async function updateGasto(id, gasto) {
+  try {
+    // Validar datos requeridos
+    if (!gasto.fecha || !gasto.monto || !gasto.descripcion) {
+      throw new Error('Faltan datos requeridos: fecha, monto y descripción son obligatorios');
+    }
+
+    // Preparar los datos del gasto
+    const gastoData = {
+      fecha: new Date(gasto.fecha).toISOString().split('T')[0],
+      monto: parseFloat(gasto.monto),
+      descripcion: gasto.descripcion,
+      categoria: gasto.categoria || 'General',
+      forma_pago: gasto.forma_pago || 'efectivo'
+    };
+
+    const response = await apiClient.put(`/gastos/${id}`, gastoData);
+    return response.data;
+  } catch (error) {
+    console.error("Error en updateGasto:", error);
+    throw new Error(error.response?.data?.message || 'Error al actualizar el gasto');
+  }
+}
+
+/**
+ * Elimina un gasto
+ * @param {number} id - ID del gasto a eliminar
+ * @returns {Promise<Object>} Promise con la respuesta del servidor
+ */
+export async function deleteGasto(id) {
+  try {
+    const response = await apiClient.delete(`/gastos/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error en deleteGasto:", error);
+    throw new Error(error.response?.data?.message || 'Error al eliminar el gasto');
+  }
+}
+
 // Puedes agregar aquí más funciones relacionadas a gastos en el futuro

@@ -99,4 +99,35 @@ export async function createVenta(venta) {
   }
 }
 
+/**
+ * Actualiza una venta existente
+ * @param {number} id - ID de la venta a actualizar
+ * @param {Object} venta - Datos actualizados de la venta
+ * @returns {Promise<Object>} Promise con los datos de la venta actualizada
+ */
+export async function updateVenta(id, venta) {
+  try {
+    const response = await apiClient.put(`/ventas/${id}`, venta);
+    return response.data;
+  } catch (error) {
+    console.error("Error en updateVenta:", error);
+    throw new Error(error.response?.data?.message || 'Error al actualizar la venta');
+  }
+}
+
+/**
+ * Elimina una venta
+ * @param {number} id - ID de la venta a eliminar
+ * @returns {Promise<Object>} Promise con la respuesta del servidor
+ */
+export async function deleteVenta(id) {
+  try {
+    const response = await apiClient.delete(`/ventas/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error en deleteVenta:", error);
+    throw new Error(error.response?.data?.message || 'Error al eliminar la venta');
+  }
+}
+
 // Puedes agregar aquí más funciones relacionadas a ventas en el futuro

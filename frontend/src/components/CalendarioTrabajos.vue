@@ -202,13 +202,6 @@
                   </p>
                   <p v-else class="text-sm text-gray-400 italic">No finalizado</p>
                 </div>
-                <div>
-                  <p class="text-sm text-gray-500">Fecha de Entrega</p>
-                  <p v-if="modalTrabajo.trabajo.fecha_entrega" class="font-medium">
-                    {{ formatDateTime(modalTrabajo.trabajo.fecha_entrega) }}
-                  </p>
-                  <p v-else class="text-sm text-gray-400 italic">No entregado</p>
-                </div>
               </div>
             </div>
             
@@ -249,7 +242,7 @@
             
             <div class="flex justify-end space-x-3 mt-4">
               <button 
-                v-if="!['terminado', 'entregado'].includes(modalTrabajo.trabajo.estado)"
+                v-if="!['terminado'].includes(modalTrabajo.trabajo.estado)"
                 @click="abrirModalCambioEstado(modalTrabajo.trabajo)" 
                 class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 inline-flex items-center"
               >
@@ -326,9 +319,7 @@
               <select v-model="modalCambioEstado.nuevoEstado" class="w-full border rounded-md px-3 py-2">
                 <option value="inicio">Programado</option>
                 <option value="proceso">En Progreso</option>
-                <option value="espera">En Espera</option>
                 <option value="terminado">Completado</option>
-                <option value="entregado">Entregado</option>
               </select>
             </div>
             
@@ -457,8 +448,7 @@
           const fechasAValidar = [
             'fecha_programada',
             'fecha_inicio',
-            'fecha_finalizacion',
-            'fecha_entrega'
+            'fecha_finalizacion'
           ];
 
           fechasAValidar.forEach(campoFecha => {
@@ -671,9 +661,7 @@
     switch (estado) {
       case 'inicio': return 'bg-yellow-100 text-yellow-800';
       case 'proceso': return 'bg-blue-100 text-blue-800';
-      case 'espera': return 'bg-orange-100 text-orange-800';
       case 'terminado': return 'bg-green-100 text-green-800';
-      case 'entregado': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   }
@@ -682,9 +670,7 @@
     switch (estado) {
       case 'inicio': return 'Programado';
       case 'proceso': return 'En Progreso';
-      case 'espera': return 'En Espera';
       case 'terminado': return 'Completado';
-      case 'entregado': return 'Entregado';
       default: return estado || 'Desconocido';
     }
   }
@@ -702,8 +688,7 @@
     const fechasAValidar = [
       'fecha_programada',
       'fecha_inicio',
-      'fecha_finalizacion',
-      'fecha_entrega'
+      'fecha_finalizacion'
     ];
 
     fechasAValidar.forEach(campoFecha => {

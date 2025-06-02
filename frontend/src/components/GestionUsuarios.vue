@@ -283,7 +283,7 @@ const openModal = (mode, user = null) => {
       nombre_completo: user.nombre_completo,
       password: '', // No mostrar la contraseña actual
       rol: user.rol,
-      activo: user.activo !== false // Si no está definido, asumir true
+      activo: Boolean(user.activo) // Asegurarnos de que sea booleano
     })
   }
   
@@ -307,6 +307,10 @@ const saveUser = async () => {
         delete userData.password
       }
       
+      // Asegurarnos de que el estado activo se envíe como booleano
+      userData.activo = Boolean(userData.activo)
+      
+      console.log('Datos a enviar:', userData) // Para debugging
       response = await userService.updateUser(currentUser.id, userData)
     }
     

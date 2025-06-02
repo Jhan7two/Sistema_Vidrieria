@@ -3,19 +3,44 @@ import api from './api'
 
 class UserService {
   async getAllUsers() {
-    return api.get('/users')
+    const response = await api.get('/users')
+    // Asegurarnos de que el estado activo sea booleano
+    return {
+      ...response,
+      data: response.data.map(user => ({
+        ...user,
+        activo: Boolean(user.activo)
+      }))
+    }
   }
   
   async getUserById(id) {
-    return api.get(`/users/${id}`)
+    const response = await api.get(`/users/${id}`)
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        activo: Boolean(response.data.activo)
+      }
+    }
   }
   
   async createUser(userData) {
-    return api.post('/users', userData)
+    // Asegurarnos de que el estado activo sea booleano
+    const data = {
+      ...userData,
+      activo: Boolean(userData.activo)
+    }
+    return api.post('/users', data)
   }
   
   async updateUser(id, userData) {
-    return api.put(`/users/${id}`, userData)
+    // Asegurarnos de que el estado activo sea booleano
+    const data = {
+      ...userData,
+      activo: Boolean(userData.activo)
+    }
+    return api.put(`/users/${id}`, data)
   }
 
   async deleteUser(id) {

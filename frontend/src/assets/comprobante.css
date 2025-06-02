@@ -1,0 +1,129 @@
+.comprobante-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 20px;
+}
+
+.comprobante-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.comprobante {
+  background: white;
+  padding: 40px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  border-radius: 8px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #333;
+  padding-bottom: 20px;
+}
+
+.header h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #1a1a1a;
+}
+
+.info-cliente, .info-trabajo, .info-financiera, .observaciones {
+  margin-bottom: 30px;
+}
+
+h2 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+.tabla-financiera {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-financiera td {
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.tabla-financiera td:first-child {
+  font-weight: bold;
+  width: 40%;
+}
+
+.footer {
+  margin-top: 40px;
+  text-align: center;
+  font-style: italic;
+  color: #666;
+}
+
+.botones {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-imprimir {
+  background-color: #2196F3;
+  color: white;
+}
+
+.btn-imprimir:hover {
+  background-color: #1976D2;
+}
+
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .comprobante-page {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+  }
+
+  .botones {
+    display: none;
+  }
+  
+  .comprobante {
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Ocultar encabezados y pies de página del navegador */
+  @page :first {
+    margin-top: 0;
+  }
+
+  @page :left {
+    margin-left: 0;
+  }
+
+  @page :right {
+    margin-right: 0;
+  }
+} 

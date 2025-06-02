@@ -16,6 +16,8 @@ import Trabajos from '../views/operador/trabajos.vue'
 import controlPanel from '../views/dashboard/controlPanel.vue'
 import Cotizaciones from '../views/operador/cotizaciones.vue'
 import Cotizacion from '../views/operador/cotizacion.vue'
+import ComprobanteView from '../views/ComprobanteView.vue'
+
 // Rutas
 const routes = [
   {
@@ -77,6 +79,12 @@ const routes = [
         meta: { requiresAuth: true }
       }
     ]
+  },
+  {
+    path: '/comprobante',
+    name: 'comprobante',
+    component: () => import('../views/ComprobanteView.vue'),
+    meta: { requiresAuth: false }
   },
   {
     path: '/:pathMatch(.*)*',
