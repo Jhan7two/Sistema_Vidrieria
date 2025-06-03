@@ -6,9 +6,7 @@ import apiClient from "./api";
  */
 export async function getAllClientes() {
   try {
-    console.log('Solicitando lista de clientes');
     const response = await apiClient.get("/clientes");
-    console.log('Respuesta de clientes recibida:', response);
     return response;
   } catch (error) {
     console.error('Error en getAllClientes:', error);
@@ -38,16 +36,10 @@ export async function getClienteById(id) {
  */
 export async function createCliente(cliente) {
   try {
-    console.log('Creando cliente:', cliente);
     const response = await apiClient.post("/clientes", cliente);
-    console.log('Respuesta completa del servidor:', response);
-    console.log('Datos del cliente creado:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error al crear cliente:', error);
-    if (error.response) {
-      console.error('Respuesta de error:', error.response.data);
-    }
     throw error;
   }
 }

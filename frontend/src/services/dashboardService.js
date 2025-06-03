@@ -73,7 +73,6 @@ export async function getDashboardStats() {
       trabajos: trabajosStats
     };
   } catch (error) {
-    console.error("Error al obtener estadísticas del dashboard:", error);
     throw error;
   }
 }

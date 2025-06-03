@@ -80,10 +80,7 @@ export async function registrarMovimiento(movimiento) {
       }
     }
     
-    console.log('Enviando movimiento:', movimiento);
     const response = await apiClient.post("/caja", movimiento);
-    console.log('Respuesta del servidor - movimiento:', response);
-    
     return response.data || response;
   } catch (error) {
     console.error("ERROR en registrarMovimiento:", error);
@@ -98,7 +95,6 @@ export async function registrarMovimiento(movimiento) {
 export async function getSaldoActual() {
   try {
     const response = await apiClient.get("/caja/saldo-actual");
-    console.log('Respuesta del servidor - saldo:', response);
     return response.data || response;
   } catch (error) {
     console.error("ERROR en getSaldoActual:", error);
@@ -142,7 +138,6 @@ export async function cerrarCaja(cierre = {}) {
 export async function getCobrosDiarios() {
   try {
     const response = await apiClient.get("/cobros/diarios");
-    console.log('Respuesta del servidor - cobros:', response);
     return response.data || response;
   } catch (error) {
     console.error("ERROR en getCobrosDiarios:", error);
@@ -159,7 +154,6 @@ export async function buscarTrabajosPorCobrar(termino) {
   try {
     const terminoEncoded = encodeURIComponent(termino);
     const response = await apiClient.get(`/trabajos/buscar?termino=${terminoEncoded}`);
-    console.log('Respuesta del servidor - búsqueda trabajos:', response);
     return response.data || response;
   } catch (error) {
     console.error("ERROR en buscarTrabajosPorCobrar:", error);
@@ -196,9 +190,7 @@ export async function registrarCobroTrabajo(cobro) {
       cobro.metodo_pago = 'efectivo'; // valor por defecto
     }
 
-    console.log('Enviando datos del cobro:', cobro);
     const response = await apiClient.post("/cobros", cobro);
-    console.log('Respuesta del servidor - cobro:', response);
     
     if (!response || (!response.data && !response)) {
       throw new Error('Respuesta inválida del servidor');
@@ -235,7 +227,6 @@ export async function getHistorialCierres(params = {}) {
     const url = `/caja/cierres${queryString ? `?${queryString}` : ''}`;
     
     const response = await apiClient.get(url);
-    console.log('Respuesta del servidor - historial cierres:', response);
     return response.data || response;
   } catch (error) {
     console.error("ERROR en getHistorialCierres:", error);
@@ -260,14 +251,13 @@ export async function getHistorialCierres(params = {}) {
 export async function verificarCierreDiario() {
   try {
     const response = await apiClient.get("/caja/verificar-cierre-diario");
-    console.log('Respuesta del servidor - verificar cierre:', response);
     return response.data || response;
   } catch (error) {
-    console.error("ERROR en verificarCierreDiario:", error);
     // Si hay un error 404, significa que no hay cierre para hoy
     if (error.response && error.response.status === 404) {
       return { existeCierre: false, cierre: null };
     }
+    console.error("ERROR en verificarCierreDiario:", error);
     throw error;
   }
 }

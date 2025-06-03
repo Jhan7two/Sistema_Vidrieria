@@ -17,7 +17,6 @@ export async function getGastosDelMes(page = 1, limit = 10) {
     } else if (Array.isArray(response.data?.data)) {
       gastosData = response.data.data;
     } else {
-      console.warn('Formato de respuesta inesperado:', response);
       return { gastos: [], totalMes: 0 };
     }
 
@@ -55,7 +54,6 @@ export async function getHistoricoGastos() {
     } else if (Array.isArray(response.data?.data)) {
       gastosData = response.data.data;
     } else {
-      console.warn('Formato de respuesta inesperado:', response);
       return [];
     }
 

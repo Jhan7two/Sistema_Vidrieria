@@ -24,11 +24,9 @@ exports.getVentas = async (req, res) => {
       data: ventasFormateadas
     });
   } catch (error) {
-    console.error('Error al obtener ventas:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error al obtener ventas',
-      error: error.message 
+      message: 'Error al obtener ventas'
     });
   }
 };
@@ -63,11 +61,9 @@ exports.getVentasDelMes = async (req, res) => {
       ventas: ventasFormateadas
     });
   } catch (error) {
-    console.error('Error al obtener ventas del mes:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener ventas del mes',
-      error: error.message 
+      message: 'Error al obtener ventas del mes'
     });
   }
 };
@@ -86,11 +82,9 @@ exports.getDashboardStats = async (req, res) => {
       totalIngresos: parseFloat(totalIngresos || 0).toFixed(2)
     });
   } catch (error) {
-    console.error('Error al obtener estadísticas de ventas:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener estadísticas de ventas',
-      error: error.message 
+      message: 'Error al obtener estadísticas de ventas'
     });
   }
 };
@@ -174,10 +168,9 @@ exports.createVenta = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al crear venta:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message || 'Error al crear venta'
+      message: 'Error al crear venta'
     });
   }
 };
@@ -249,38 +242,26 @@ exports.updateVenta = async (req, res) => {
         forma_pago,
         observaciones: `Venta ID: ${id}${trabajo_id ? `, Trabajo ID: ${trabajo_id}` : ''}`
       }, { transaction });
-      
-      // Actualizar saldos de movimientos posteriores
-      await Caja.update(
-        {
-          saldo_resultante: sequelize.literal(`saldo_resultante + ${diferenciaMonto}`)
-        },
-        {
-          where: {
-            id: { [Op.gt]: movimientoCaja.id }
-          },
-          transaction
-        }
-      );
     }
     
     await transaction.commit();
     
+    // Formatear la respuesta
+    const ventaActualizada = {
+      ...ventaExistente.toJSON(),
+      fecha: formatearFechaBolivia(ventaExistente.fecha),
+      monto: parseFloat(ventaExistente.monto)
+    };
+    
     res.json({
       success: true,
-      message: 'Venta actualizada exitosamente',
-      data: {
-        ...ventaExistente.toJSON(),
-        fecha: formatearFechaBolivia(ventaExistente.fecha),
-        monto: parseFloat(ventaExistente.monto)
-      }
+      data: ventaActualizada
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al actualizar venta:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message || 'Error al actualizar venta'
+      message: 'Error al actualizar venta'
     });
   }
 };
@@ -298,7 +279,7 @@ exports.deleteVenta = async (req, res) => {
       throw new Error('Venta no encontrada');
     }
     
-    // Buscar el movimiento en caja asociado
+    // Buscar y eliminar el movimiento en caja
     const movimientoCaja = await Caja.findOne({
       where: {
         tipo_referencia: 'venta',
@@ -308,22 +289,6 @@ exports.deleteVenta = async (req, res) => {
     });
     
     if (movimientoCaja) {
-      const montoVenta = parseFloat(venta.monto);
-      
-      // Actualizar saldos de movimientos posteriores
-      await Caja.update(
-        {
-          saldo_resultante: sequelize.literal(`saldo_resultante - ${montoVenta}`)
-        },
-        {
-          where: {
-            id: { [Op.gt]: movimientoCaja.id }
-          },
-          transaction
-        }
-      );
-      
-      // Eliminar el movimiento en caja
       await movimientoCaja.destroy({ transaction });
     }
     
@@ -334,14 +299,13 @@ exports.deleteVenta = async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Venta eliminada exitosamente'
+      message: 'Venta eliminada correctamente'
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al eliminar venta:', error);
     res.status(500).json({ 
       success: false, 
-      message: error.message || 'Error al eliminar venta'
+      message: 'Error al eliminar venta'
     });
   }
 };

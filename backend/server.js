@@ -45,10 +45,6 @@ app.use(morgan(''));
 
 // Middleware para verificar cookies y tokens en cada solicitud
 app.use((req, res, next) => {
-  // Log para depuración
-  if (req.cookies && req.cookies.token) {
-    console.log(`Cookie de sesión presente para: ${req.originalUrl}`);
-  }
   next();
 });
 
@@ -80,7 +76,7 @@ app.use((req, res, next) => {
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
-  console.error('Error del servidor:', err.stack);
+  console.error('Error del servidor');
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || 'Error interno del servidor'

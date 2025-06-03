@@ -46,7 +46,6 @@ exports.protect = async (req, res, next) => {
 
       // Verificar si el nombre de usuario coincide con el token
       if (user.nombre_usuario !== decoded.username) {
-        console.error('El nombre de usuario en el token no coincide con el usuario encontrado');
         return res.status(401).json({
           success: false,
           message: 'Token inválido',
@@ -65,10 +64,7 @@ exports.protect = async (req, res, next) => {
       const timeRemaining = tokenExp - currentTime;
       
       // Solo renovar el token si está a menos de 4 horas de expirar
-      // Esto reduce la sobrecarga de generar tokens constantemente
       if (timeRemaining < 14400) { // 4 horas en segundos
-        console.log('Renovando token para', user.nombre_usuario);
-        
         // Renovar token para mantener la sesión activa
         const newToken = jwt.sign(
           { id: user.id, username: user.nombre_usuario, role: user.rol },
@@ -90,7 +86,6 @@ exports.protect = async (req, res, next) => {
       
       next();
     } catch (error) {
-      console.error('Error validando token:', error.message);
       return res.status(401).json({
         success: false,
         message: 'Token inválido o expirado',
@@ -98,7 +93,6 @@ exports.protect = async (req, res, next) => {
       });
     }
   } catch (error) {
-    console.error('Error en middleware de autenticación:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'

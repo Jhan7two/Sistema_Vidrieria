@@ -503,29 +503,17 @@ const guardarCotizacion = async () => {
         tipo: pagado >= total ? 'venta completa' : 'adelanto',
         descripcion: `Anticipo para trabajo #${trabajoId}`,
         cliente_id: trabajo.value.cliente_id,
-        trabajo_id: trabajoId
+        trabajo_id: trabajoId,
+        forma_pago: 'efectivo'
       };
       
       try {
-        // Registrar la venta
+        // Registrar solo la venta, que internamente debería manejar el movimiento en caja
         const ventaResponse = await createVenta(ventaData);
         console.log('Respuesta de la venta creada:', ventaResponse);
-
-        // Registrar el movimiento en caja
-        const movimientoCaja = {
-          tipo_movimiento: 'entrada',
-          concepto: `Anticipo trabajo #${trabajoId}`,
-          monto: pagado,
-          descripcion: `Anticipo para trabajo #${trabajoId} - ${ventaData.tipo}`,
-          forma_pago: 'efectivo', // Por defecto, se puede modificar según necesidad
-          referencia: `Trabajo #${trabajoId}`
-        };
-
-        await registrarMovimiento(movimientoCaja);
-        console.log('Movimiento en caja registrado:', movimientoCaja);
       } catch (error) {
-        console.error('Error al registrar la venta o el movimiento en caja:', error);
-        // No interrumpimos el flujo si falla el registro de la venta o el movimiento
+        console.error('Error al registrar la venta:', error);
+        // No interrumpimos el flujo si falla el registro de la venta
       }
     }
     

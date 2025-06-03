@@ -17,7 +17,6 @@ export async function getVentasDelMes(page = 1, limit = 10) {
     } else if (Array.isArray(response.data?.data)) {
       ventasData = response.data.data;
     } else {
-      console.warn('Formato de respuesta inesperado:', response);
       return { ventas: [], totalMes: 0 };
     }
 
@@ -55,7 +54,6 @@ export async function getHistoricoVentas() {
     } else if (Array.isArray(response.data?.data)) {
       ventasData = response.data.data;
     } else {
-      console.warn('Formato de respuesta inesperado:', response);
       return [];
     }
 

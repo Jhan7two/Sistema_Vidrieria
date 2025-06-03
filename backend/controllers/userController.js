@@ -14,7 +14,6 @@ exports.getUsers = async (req, res) => {
       data: users
     });
   } catch (error) {
-    console.error('Error al obtener usuarios:', error);
     res.status(500).json({
       success: false,
       message: 'Error al obtener usuarios'
@@ -41,7 +40,6 @@ exports.getUser = async (req, res) => {
       data: user
     });
   } catch (error) {
-    console.error('Error al obtener usuario:', error);
     res.status(500).json({
       success: false,
       message: 'Error al obtener usuario'
@@ -88,12 +86,10 @@ exports.createUser = async (req, res) => {
       data: user.toSafeObject()
     });
   } catch (error) {
-    console.error('Error al crear usuario:', error);
-    
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
         success: false,
-        message: error.errors.map(e => e.message).join(', ')
+        message: 'Datos de usuario inválidos'
       });
     }
     
@@ -136,12 +132,10 @@ exports.updateUser = async (req, res) => {
       data: user.toSafeObject()
     });
   } catch (error) {
-    console.error('Error al actualizar usuario:', error);
-    
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
         success: false,
-        message: error.errors.map(e => e.message).join(', ')
+        message: 'Datos de usuario inválidos'
       });
     }
     
@@ -186,7 +180,6 @@ exports.changePassword = async (req, res) => {
       message: 'Contraseña actualizada correctamente'
     });
   } catch (error) {
-    console.error('Error al cambiar contraseña:', error);
     res.status(500).json({
       success: false,
       message: 'Error al cambiar contraseña'
@@ -217,7 +210,6 @@ exports.deleteUser = async (req, res) => {
       message: 'Usuario eliminado correctamente'
     });
   } catch (error) {
-    console.error('Error al eliminar usuario:', error);
     res.status(500).json({
       success: false,
       message: 'Error al eliminar usuario'

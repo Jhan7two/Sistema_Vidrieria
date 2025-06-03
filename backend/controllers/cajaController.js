@@ -24,11 +24,9 @@ exports.getSaldoActual = async (req, res) => {
       fecha: formatearFechaBolivia(crearFechaBolivia())
     });
   } catch (error) {
-    console.error('Error al obtener saldo de caja:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener saldo de caja', 
-      error: error.message 
+      message: 'Error al obtener saldo de caja'
     });
   }
 };
@@ -74,11 +72,9 @@ exports.getMovimientosDiarios = async (req, res) => {
       movimientos: movimientosFormateados
     });
   } catch (error) {
-    console.error('Error al obtener movimientos diarios:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener movimientos diarios', 
-      error: error.message 
+      message: 'Error al obtener movimientos diarios'
     });
   }
 };
@@ -128,7 +124,6 @@ exports.registrarMovimiento = async (req, res) => {
       const saldoStr = ultimoMovimiento.saldo_resultante.toString();
       saldoActual = parseFloat(saldoStr);
       if (isNaN(saldoActual)) {
-        console.error('Error: saldo_resultante no es un número válido:', ultimoMovimiento.saldo_resultante);
         saldoActual = 0;
       }
     }
@@ -218,10 +213,9 @@ exports.registrarMovimiento = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al registrar movimiento:', error);
     return res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: 'Error al registrar movimiento'
     });
   }
 };
@@ -305,10 +299,9 @@ exports.cerrarCaja = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al cerrar caja:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message || 'Error al cerrar la caja'
+      message: 'Error al cerrar la caja'
     });
   }
 };
@@ -379,11 +372,9 @@ exports.getHistorialCierres = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al obtener historial de cierres:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener historial de cierres', 
-      error: error.message 
+      message: 'Error al obtener historial de cierres'
     });
   }
 };
@@ -415,11 +406,9 @@ exports.verificarCierreDiario = async (req, res) => {
       } : null
     });
   } catch (error) {
-    console.error('Error al verificar cierre diario:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al verificar cierre diario', 
-      error: error.message 
+      message: 'Error al verificar cierre diario'
     });
   }
 };

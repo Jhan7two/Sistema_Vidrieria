@@ -14,11 +14,9 @@ const getClientes = async (req, res) => {
     
     res.json(clientes);
   } catch (error) {
-    console.error('Error al obtener clientes:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener la lista de clientes',
-      error: error.message 
+      message: 'Error al obtener la lista de clientes'
     });
   }
 };
@@ -43,11 +41,9 @@ const getClienteById = async (req, res) => {
     
     res.json(cliente);
   } catch (error) {
-    console.error('Error al obtener cliente por ID:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener el cliente',
-      error: error.message 
+      message: 'Error al obtener el cliente'
     });
   }
 };
@@ -80,11 +76,9 @@ const crearCliente = async (req, res) => {
       data: nuevoCliente
     });
   } catch (error) {
-    console.error('Error al crear cliente:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al crear el cliente',
-      error: error.message 
+      message: 'Error al crear el cliente'
     });
   }
 };
@@ -125,11 +119,9 @@ const updateCliente = async (req, res) => {
     
     res.json(cliente);
   } catch (error) {
-    console.error('Error al actualizar cliente:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al actualizar el cliente',
-      error: error.message 
+      message: 'Error al actualizar el cliente'
     });
   }
 };
@@ -161,11 +153,9 @@ const deleteCliente = async (req, res) => {
       message: 'Cliente eliminado correctamente' 
     });
   } catch (error) {
-    console.error('Error al eliminar cliente:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al eliminar el cliente',
-      error: error.message 
+      message: 'Error al eliminar el cliente'
     });
   }
 };
@@ -198,11 +188,9 @@ const buscarClientes = async (req, res) => {
     
     res.json(clientes);
   } catch (error) {
-    console.error('Error al buscar clientes:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al buscar clientes',
-      error: error.message 
+      message: 'Error al buscar clientes'
     });
   }
 };
