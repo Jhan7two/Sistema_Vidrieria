@@ -2,6 +2,7 @@ const Gasto = require('../models/gasto');
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { ajustarFechaBolivia, crearFechaBolivia, formatearFechaBolivia } = require('../utils/fechas');
 
 // Obtener todos los gastos
 exports.getGastos = async (req, res) => {
@@ -29,10 +30,8 @@ exports.createGasto = async (req, res) => {
     // Extraer forma_pago del body antes de crear el gasto
     const { forma_pago, ...gastoData } = req.body;
     
-    // Asegurarse de que la fecha esté en el formato correcto
-    if (gastoData.fecha) {
-      gastoData.fecha = new Date(gastoData.fecha);
-    }
+    // Usar la fecha tal como viene del frontend para el gasto
+    const fechaGasto = gastoData.fecha ? new Date(gastoData.fecha) : crearFechaBolivia();
     
     // Asegurarse de que el monto sea un número
     if (gastoData.monto) {
@@ -41,7 +40,7 @@ exports.createGasto = async (req, res) => {
     
     // Crear el gasto con los datos validados
     const gasto = await Gasto.create({
-      fecha: gastoData.fecha,
+      fecha: fechaGasto,
       monto: gastoData.monto,
       descripcion: gastoData.descripcion,
       categoria: gastoData.categoria
@@ -59,9 +58,9 @@ exports.createGasto = async (req, res) => {
     // Usar ID de usuario predeterminado (1) o del usuario en sesión
     const usuarioId = req.user ? req.user.id : 1;
     
-    // Registrar el movimiento en la tabla caja
+    // Registrar el movimiento en la tabla caja usando crearFechaBolivia()
     const movimientoCaja = await Caja.create({
-      fecha_hora: new Date(),
+      fecha_hora: crearFechaBolivia(),
       tipo_movimiento: 'salida',
       concepto: req.body.categoria || 'Gasto general',
       monto: montoNumerico,
@@ -110,9 +109,9 @@ exports.createGasto = async (req, res) => {
 // Obtener gastos del mes actual
 exports.getGastosDelMes = async (req, res) => {
   try {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const now = crearFechaBolivia();
+    const firstDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
 
     const gastos = await Gasto.findAll({
       where: {
@@ -127,7 +126,7 @@ exports.getGastosDelMes = async (req, res) => {
     res.json({
       totalMes: Number.isNaN(totalMes) ? 0 : totalMes,
       gastos: Array.isArray(gastos) ? gastos.map(g => ({
-        dia: g.fecha,
+        dia: formatearFechaBolivia(g.fecha),
         monto: g.monto,
         descripcion: g.descripcion,
         categoria: g.categoria
@@ -161,9 +160,9 @@ exports.getDashboardStats = async (req, res) => {
 // Obtener gastos por categoría
 exports.getGastosPorCategoria = async (req, res) => {
   try {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const now = crearFechaBolivia();
+    const firstDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
 
     const gastos = await Gasto.findAll({
       where: {
@@ -215,7 +214,7 @@ exports.updateGasto = async (req, res) => {
     const diferenciaMonto = parseFloat(gastoExistente.monto) - montoNumerico;
     
     // Actualizar el gasto
-    const fechaGasto = fecha ? new Date(fecha) : gastoExistente.fecha;
+    const fechaGasto = fecha ? ajustarFechaBolivia(new Date(fecha)) : crearFechaBolivia();
     
     await gastoExistente.update({
       fecha: fechaGasto,

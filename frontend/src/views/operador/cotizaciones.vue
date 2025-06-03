@@ -498,7 +498,7 @@ const guardarCotizacion = async () => {
     // Si hay un anticipo, registrar como venta y en caja
     if (pagado > 0) {
       const ventaData = {
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: new Date(),
         monto: pagado,
         tipo: pagado >= total ? 'venta completa' : 'adelanto',
         descripcion: `Anticipo para trabajo #${trabajoId}`,

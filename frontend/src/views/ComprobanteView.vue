@@ -26,22 +26,24 @@
         <div class="info-financiera">
           <h2>Información Financiera</h2>
           <table class="tabla-financiera">
-            <tr>
-              <td>Costo Total:</td>
-              <td>{{ formatCurrency(trabajo?.costo_total) }}</td>
-            </tr>
-            <tr>
-              <td>Monto Pagado:</td>
-              <td>{{ formatCurrency(trabajo?.monto_pagado) }}</td>
-            </tr>
-            <tr>
-              <td>Saldo Pendiente:</td>
-              <td>{{ formatCurrency(trabajo?.saldo_pendiente) }}</td>
-            </tr>
-            <tr>
-              <td>Estado de Pago:</td>
-              <td>{{ trabajo?.estado_pago }}</td>
-            </tr>
+            <tbody>
+              <tr>
+                <td>Costo Total:</td>
+                <td>{{ formatCurrency(trabajo?.costo_total) }}</td>
+              </tr>
+              <tr>
+                <td>Monto Pagado:</td>
+                <td>{{ formatCurrency(trabajo?.monto_pagado) }}</td>
+              </tr>
+              <tr>
+                <td>Saldo Pendiente:</td>
+                <td>{{ formatCurrency(trabajo?.saldo_pendiente) }}</td>
+              </tr>
+              <tr>
+                <td>Estado de Pago:</td>
+                <td>{{ trabajo?.estado_pago }}</td>
+              </tr>
+            </tbody>
           </table>
         </div>
 

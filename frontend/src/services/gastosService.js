@@ -96,9 +96,8 @@ export async function crearGasto(gasto) {
 
     // Preparar los datos del gasto
     const gastoData = {
-      fecha: new Date(gasto.fecha).toISOString().split('T')[0],
+      ...gasto,
       monto: parseFloat(gasto.monto),
-      descripcion: gasto.descripcion,
       categoria: gasto.categoria || 'General',
       forma_pago: gasto.forma_pago || 'efectivo'
     };
