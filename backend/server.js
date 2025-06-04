@@ -41,7 +41,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(morgan(''));
+app.use(morgan('combined'));
 
 // Middleware para verificar cookies y tokens en cada solicitud
 app.use((req, res, next) => {
@@ -95,7 +95,7 @@ const startServer = async () => {
 
     // Iniciar el servidor
     app.listen(PORT, () => {
-      console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+      console.log(`Servidor ejecutándose en el puerto ${PORT}`);
     });
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
