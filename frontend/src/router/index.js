@@ -7,7 +7,7 @@ import AuthLayout from '../layouts/auth-layout.vue'
 import MainLayout from '../layouts/main-layout.vue'
 
 // Vistas
-import Login from '../views/auth/login.vue'
+import Login from '../views/auth/login-user.vue'
 import Home from '../views/home.vue'
 import NotFound from '../views/not-found.vue'
 import Dashboard from '../views/dashboard/dashboard.vue'
@@ -30,7 +30,7 @@ const routes = [
     component: AuthLayout,
     children: [
       {
-        path: 'login',
+        path: 'login-user',
         name: 'login',
         component: Login,
         meta: { requiresGuest: true }

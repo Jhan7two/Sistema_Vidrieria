@@ -1,4 +1,4 @@
-<!-- frontend/src/views/auth/login.vue -->
+<!-- frontend/src/views/auth/login-user.vue -->
 <template>
     <div>
       <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Acceso al Sistema</h1>
