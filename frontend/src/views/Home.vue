@@ -10,7 +10,7 @@
             <router-link to="/auth/login" class="bg-white text-blue-700 hover:bg-rose-100 font-semibold py-3 px-6 rounded-lg transition duration-300">
               Iniciar Sesión
             </router-link>
-            <router-link to="/controlPanel" class="bg-transparent hover:bg-blue-700 border border-white font-semibold py-3 px-6 rounded-lg transition duration-300">
+            <router-link to="/control-panel" class="bg-transparent hover:bg-blue-700 border border-white font-semibold py-3 px-6 rounded-lg transition duration-300">
               Panel de Control
             </router-link>
           </div>

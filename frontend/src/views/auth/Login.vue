@@ -14,5 +14,5 @@
   </template>
   
   <script setup>
-  import LoginForm from '../../components/auth/LoginForm.vue'
+  import LoginForm from '../../components/auth/login-form.vue'
   </script>
