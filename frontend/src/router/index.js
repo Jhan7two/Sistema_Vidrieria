@@ -3,20 +3,20 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 
 // Layouts
-import AuthLayout from '../layouts/auth-layout.vue'
-import MainLayout from '../layouts/main-layout.vue'
+import AuthLayout from '@/layouts/auth-layout.vue'
+import MainLayout from '@/layouts/main-layout.vue'
 
 // Vistas
-import Login from '../views/auth/login-user.vue'
-import Home from '../views/home.vue'
-import NotFound from '../views/not-found.vue'
-import Dashboard from '../views/dashboard/dashboard.vue'
-import CajaDiaria from '../views/operador/caja-diaria.vue'
-import Trabajos from '../views/operador/trabajos.vue'
-import ControlPanel from '../views/dashboard/control-panel.vue'
-import Cotizaciones from '../views/operador/cotizaciones.vue'
-import Cotizacion from '../views/operador/cotizacion.vue'
-import ComprobanteView from '../views/comprobante-view.vue'
+import Login from '@/views/auth/login-user.vue'
+import Home from '@/views/home.vue'
+import NotFound from '@/views/not-found.vue'
+import Dashboard from '@/views/dashboard/dashboard.vue'
+import CajaDiaria from '@/views/operador/caja-diaria.vue'
+import Trabajos from '@/views/operador/trabajos.vue'
+import ControlPanel from '@/views/dashboard/control-panel.vue'
+import Cotizaciones from '@/views/operador/cotizaciones.vue'
+import Cotizacion from '@/views/operador/cotizacion.vue'
+import ComprobanteView from '@/views/comprobante-view.vue'
 
 // Rutas
 const routes = [
