@@ -3,6 +3,7 @@ const Trabajo = require('../models/trabajo');
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { getBoliviaDateTime } = require('../utils/dateUtils');
 
 // Obtener todos los cobros
 exports.getAllCobros = async (req, res) => {
@@ -84,7 +85,7 @@ exports.createCobro = async (req, res) => {
     
     const datosCobro = {
       trabajo_id,
-      fecha: new Date(),
+      fecha: getBoliviaDateTime(),
       monto: montoNum,
       tipo_pago: formaPagoFinal,
       observacion: observacionesFinal
@@ -114,7 +115,7 @@ exports.createCobro = async (req, res) => {
     const nuevoSaldo = saldoActual + montoNum;
     
     await Caja.create({
-      fecha_hora: new Date(),
+      fecha_hora: getBoliviaDateTime(),
       tipo_movimiento: 'entrada',
       concepto: 'Cobro',
       monto: montoNum,
@@ -242,7 +243,7 @@ exports.updateCobro = async (req, res) => {
       
       // Crear el movimiento en caja
       await Caja.create({
-        fecha_hora: new Date(),
+        fecha_hora: getBoliviaDateTime(),
         tipo_movimiento: 'entrada',
         concepto: 'Cobro',
         monto,

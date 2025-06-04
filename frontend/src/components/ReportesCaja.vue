@@ -69,7 +69,6 @@
               <th class="px-4 py-2 text-left">Entradas</th>
               <th class="px-4 py-2 text-left">Salidas</th>
               <th class="px-4 py-2 text-left">Saldo del Día</th>
-              <th class="px-4 py-2 text-left">Saldo Acumulado</th>
               <th class="px-4 py-2 text-left">Usuario</th>
               <th class="px-4 py-2 text-left">Observaciones</th>
             </tr>
@@ -82,12 +81,11 @@
               <td class="px-4 py-2 font-medium" :class="cierre.saldo_final >= 0 ? 'text-green-700' : 'text-red-700'">
                 {{ formatCurrency(cierre.saldo_final) }}
               </td>
-              <td class="px-4 py-2 font-medium">{{ formatCurrency(cierre.saldo_acumulado || 0) }}</td>
               <td class="px-4 py-2">{{ getNombreUsuario(cierre.usuario) }}</td>
               <td class="px-4 py-2">{{ cierre.observaciones || '-' }}</td>
             </tr>
             <tr v-if="cierres.length === 0">
-              <td colspan="7" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
+              <td colspan="6" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
             </tr>
           </tbody>
         </table>

@@ -30,7 +30,7 @@ router.post(
 // Endpoint para cierre de día
 router.post(
     '/cerrar',
-    authorize('admin'),
+    authorize('admin', 'vendedor'),
     cajaController.cerrarCaja
 );
 

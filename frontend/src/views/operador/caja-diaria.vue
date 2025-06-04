@@ -212,7 +212,6 @@
         <table class="min-w-full">
           <thead>
             <tr class="bg-gray-100">
-              <th class="px-4 py-2 text-left">Hora</th>
               <th class="px-4 py-2 text-left">Tipo</th>
               <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Concepto' : 'Trabajo ID' }}</th>
               <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Monto' : 'Cliente' }}</th>
@@ -223,7 +222,6 @@
           </thead>
           <tbody>
             <tr v-for="mov in vista === 'movimientos' ? movimientosPaginados : cobrosPaginados" :key="mov.id" class="border-b">
-              <td class="px-4 py-2">{{ formatDate(mov.fecha_hora || mov.fecha) }}</td>
               <td :class="[mov.tipo_movimiento === 'entrada' || mov.tipo_referencia === 'cobro' ? 'entrada' : 'salida', 'px-4 py-2']">
                 {{ mov.tipo_movimiento || mov.tipo_referencia }}
               </td>
@@ -234,7 +232,7 @@
               <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
             </tr>
             <tr v-if="(vista === 'movimientos' && movimientosPaginados.length === 0) || (vista === 'cobros' && cobrosPaginados.length === 0)">
-              <td :colspan="vista === 'cobros' ? 7 : 6" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
+              <td :colspan="vista === 'cobros' ? 6 : 5" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
             </tr>
           </tbody>
         </table>
