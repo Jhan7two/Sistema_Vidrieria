@@ -11,12 +11,12 @@ import Login from '../views/auth/login.vue'
 import Home from '../views/home.vue'
 import NotFound from '../views/not-found.vue'
 import Dashboard from '../views/dashboard/dashboard.vue'
-import cajaDiaria from '../views/operador/caja-diaria.vue'
+import CajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
-import controlPanel from '../views/dashboard/control-panel.vue'
+import ControlPanel from '../views/dashboard/control-panel.vue'
 import Cotizaciones from '../views/operador/cotizaciones.vue'
 import Cotizacion from '../views/operador/cotizacion.vue'
-import ComprobanteView from '../views/comprobante.vue'
+import ComprobanteView from '../views/comprobante-view.vue'
 
 // Rutas
 const routes = [
@@ -40,7 +40,7 @@ const routes = [
   {
     path: '/control-panel',
     name: 'control-panel',
-    component: controlPanel,
+    component: ControlPanel,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
@@ -57,7 +57,7 @@ const routes = [
       {
         path: 'operador/caja-diaria',
         name: 'cajaDiaria',
-        component: cajaDiaria,
+        component: CajaDiaria,
         meta: { requiresAuth: true }
       },
       {
@@ -83,7 +83,7 @@ const routes = [
   {
     path: '/comprobante',
     name: 'comprobante',
-    component: () => import('../views/comprobante.vue'),
+    component: ComprobanteView,
     meta: { requiresAuth: false }
   },
   {
