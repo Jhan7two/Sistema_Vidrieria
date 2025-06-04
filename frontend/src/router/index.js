@@ -9,12 +9,14 @@ import MainLayout from '../layouts/mainLayout.vue'
 // Vistas
 import Login from '../views/auth/Login.vue'
 import Home from '../views/Home.vue'
-import ControlPanel from '../views/dashboard/ControlPanel.vue'
 import NotFound from '../views/NotFound.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
-import ReportesCaja from '../views/admin/reportes-caja.vue'
+import controlPanel from '../views/dashboard/controlPanel.vue'
+import Cotizaciones from '../views/operador/cotizaciones.vue'
+import Cotizacion from '../views/operador/cotizacion.vue'
+import ComprobanteView from '../views/ComprobanteView.vue'
 
 // Rutas
 const routes = [
@@ -38,8 +40,8 @@ const routes = [
   {
     path: '/controlPanel',
     name: 'controlPanel',
-    component: ControlPanel,
-    meta: { requiresAuth: true } // No requiere ser admin
+    component: controlPanel,
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/',
@@ -65,12 +67,24 @@ const routes = [
         meta: { requiresAuth: true }
       },
       {
-        path: 'admin/reportes-caja',
-        name: 'reportesCaja',
-        component: ReportesCaja,
-        meta: { requiresAuth: true, requiresAdmin: true }
+        path: 'operador/cotizaciones',
+        name: 'cotizaciones',
+        component: Cotizaciones,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'operador/cotizacion',
+        name: 'cotizacion',
+        component: Cotizacion,
+        meta: { requiresAuth: true }
       }
     ]
+  },
+  {
+    path: '/comprobante',
+    name: 'comprobante',
+    component: () => import('../views/ComprobanteView.vue'),
+    meta: { requiresAuth: false }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -104,14 +118,26 @@ router.beforeEach((to, from, next) => {
     // Si el usuario no está autenticado
     if (!isLoggedIn) {
       console.log('Acceso denegado: requiere autenticación')
-      next(loginRoute)
+      // Guardar la ruta actual para redirección después del login
+      next({ 
+        name: 'login', 
+        query: { redirect: to.fullPath }
+      })
       return
     }
     
-    // Si además requiere ser admin
+    // Si requiere ser admin y el usuario no lo es
     if (to.meta.requiresAdmin && !isAdmin) {
       console.log('Acceso denegado: requiere privilegios de administrador')
-      next({ name: 'controlPanel' })
+      // Cerrar la sesión actual
+      authStore.logout()
+      // Redirigir al login con un mensaje
+      next({ 
+        name: 'login', 
+        query: { 
+          message: 'Se requiere una cuenta de administrador para acceder a esta sección'
+        }
+      })
       return
     }
   }
@@ -120,11 +146,12 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresGuest && isLoggedIn) {
     console.log('Redireccionando: usuario ya autenticado')
     
-    // Si el usuario está autenticado, redirigir según su rol
+    // Redirigir según el rol del usuario
     if (isAdmin) {
       next({ name: 'dashboard' })
     } else {
-      next({ name: 'controlPanel' })
+      // Si es vendedor u otro rol, redirigir a caja-diaria
+      next({ name: 'cajaDiaria' })
     }
     return
   }

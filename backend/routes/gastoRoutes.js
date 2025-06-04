@@ -16,4 +16,8 @@ router.get('/categorias', authorize('admin', 'vendedor'), gastoController.getGas
 router.get('/', authorize('admin', 'vendedor'), gastoController.getGastos);
 router.post('/', authorize('admin', 'vendedor'), gastoController.createGasto);
 
+// Rutas de administración (solo admin)
+router.put('/:id', authorize('admin'), gastoController.updateGasto);
+router.delete('/:id', authorize('admin'), gastoController.deleteGasto);
+
 module.exports = router;

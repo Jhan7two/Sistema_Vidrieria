@@ -1,27 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const clienteController = require('../controllers/clienteController');
-const { verifyToken } = require('../middlewares/authMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
 
 // Aplicar middleware de autenticación a todas las rutas
-router.use(verifyToken);
+router.use(protect);
 
-// Obtener todos los clientes
-router.get('/', clienteController.getAllClientes);
-
-// Buscar clientes (debe ir antes de getClienteById para evitar conflictos de rutas)
+// Rutas para clientes
+router.get('/', clienteController.getClientes);
 router.get('/buscar', clienteController.buscarClientes);
-
-// Obtener un cliente por ID
-router.get('/:id', clienteController.getClienteById);
-
-// Crear un nuevo cliente
-router.post('/', clienteController.createCliente);
-
-// Actualizar un cliente existente
+router.post('/', clienteController.crearCliente);
 router.put('/:id', clienteController.updateCliente);
-
-// Eliminar un cliente
 router.delete('/:id', clienteController.deleteCliente);
+router.get('/:id', clienteController.getClienteById);
 
 module.exports = router; 

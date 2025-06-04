@@ -6,9 +6,7 @@ import apiClient from "./api";
  */
 export async function getAllClientes() {
   try {
-    console.log('Solicitando lista de clientes');
     const response = await apiClient.get("/clientes");
-    console.log('Respuesta de clientes recibida:', response);
     return response;
   } catch (error) {
     console.error('Error en getAllClientes:', error);
@@ -38,10 +36,8 @@ export async function getClienteById(id) {
  */
 export async function createCliente(cliente) {
   try {
-    console.log('Creando cliente:', cliente);
     const response = await apiClient.post("/clientes", cliente);
-    console.log('Cliente creado:', response);
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error al crear cliente:', error);
     throw error;
@@ -86,7 +82,7 @@ export async function deleteCliente(id) {
  */
 export async function buscarClientes(termino) {
   try {
-    const response = await apiClient.get(`/clientes/buscar?q=${encodeURIComponent(termino)}`);
+    const response = await apiClient.get(`/clientes/buscar?termino=${encodeURIComponent(termino)}`);
     return response;
   } catch (error) {
     console.error('Error al buscar clientes:', error);

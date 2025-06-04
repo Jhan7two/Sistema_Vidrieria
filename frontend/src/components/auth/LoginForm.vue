@@ -58,6 +58,7 @@
   import { useVuelidate } from '@vuelidate/core'
   import { required, minLength } from '@vuelidate/validators'
   import { useAuthStore } from '../../store/auth'
+  import { useRouter, useRoute } from 'vue-router'
   
   // Estado del formulario
   const form = reactive({
@@ -78,6 +79,8 @@
   
   // Auth store
   const authStore = useAuthStore()
+  const router = useRouter()
+  const route = useRoute()
   
   // Estado de la UI
   const loading = computed(() => authStore.loading)
@@ -91,12 +94,27 @@
   
     try {
       // Intentar login
-      await authStore.login({
+      const success = await authStore.login({
         username: form.username,
         password: form.password
       })
+
+      if (success) {
+        // Si hay una ruta de redirección en la query, usarla
+        if (route.query.redirect) {
+          router.push(route.query.redirect)
+        } else {
+          // Si no hay ruta de redirección, redirigir según el rol
+          if (authStore.isAdmin) {
+            router.push({ name: 'dashboard' })
+          } else if (authStore.isOperario) {
+            router.push({ name: 'trabajos' })
+          } else {
+            router.push({ name: 'cajaDiaria' })
+          }
+        }
+      }
     } catch (error) {
-      // Error ya es manejado en el store
       console.error('Error al iniciar sesión:', error)
     }
   }

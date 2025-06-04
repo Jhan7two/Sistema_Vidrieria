@@ -29,8 +29,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <h3 class="text-xl font-semibold mb-2">Gestión de Inventario</h3>
-            <p class="text-gray-600">Control completo de su inventario de vidrios, aluminio y accesorios con alertas de stock mínimo.</p>
+            <h3 class="text-xl font-semibold mb-2">Gestión de economica</h3>
+            <p class="text-gray-600">Control completo de su economica de vidrios, aluminio y accesorios con alertas de stock mínimo.</p>
           </div>
           
           <div class="bg-white p-6 rounded-lg shadow-md">
@@ -49,8 +49,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 class="text-xl font-semibold mb-2">Facturación y Ventas</h3>
-            <p class="text-gray-600">Genere facturas, presupuestos y gestione sus ventas de manera rápida y eficiente.</p>
+            <h3 class="text-xl font-semibold mb-2">comprobantes y Ventas</h3>
+            <p class="text-gray-600">Genere comprobantes, presupuestos y gestione sus ventas de manera rápida y eficiente.</p>
           </div>
         </div>
       </div>

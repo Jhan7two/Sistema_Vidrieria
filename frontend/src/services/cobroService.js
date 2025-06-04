@@ -36,8 +36,6 @@ export async function getCobrosByTrabajoId(trabajoId) {
  */
 export async function createCobro(cobro) {
   try {
-    console.log("Enviando datos de cobro al backend:", cobro);
-    
     // Asegurarse de que el monto es un número
     if (cobro.monto && typeof cobro.monto === 'string') {
       cobro.monto = parseFloat(cobro.monto);
@@ -49,8 +47,7 @@ export async function createCobro(cobro) {
       delete cobro.metodo_pago;
     }
     
-  const response = await apiClient.post("/cobros", cobro);
-    console.log("Respuesta del servidor al crear cobro:", response);
+    const response = await apiClient.post("/cobros", cobro);
     return response;
   } catch (error) {
     console.error("ERROR en createCobro:", error);
@@ -59,16 +56,10 @@ export async function createCobro(cobro) {
     let mensaje = "Error al crear cobro";
     
     if (error.response) {
-      // Error del servidor
-      console.error("Error del servidor:", error.response.status, error.response.data);
       mensaje = error.response.data?.message || `Error ${error.response.status} del servidor`;
     } else if (error.request) {
-      // Error de red
-      console.error("Error de red - no se recibió respuesta");
       mensaje = "No se pudo conectar con el servidor";
     } else {
-      // Otro tipo de error
-      console.error("Error al procesar la solicitud:", error.message);
       mensaje = error.message || "Error desconocido";
     }
     

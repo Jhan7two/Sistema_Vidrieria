@@ -3,6 +3,7 @@ const Trabajo = require('../models/trabajo');
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { getBoliviaDateTime } = require('../utils/dateUtils');
 
 // Obtener todos los cobros
 exports.getAllCobros = async (req, res) => {
@@ -12,8 +13,7 @@ exports.getAllCobros = async (req, res) => {
     });
     res.json(cobros);
   } catch (error) {
-    console.error('Error al obtener cobros:', error);
-    res.status(500).json({ message: 'Error al obtener cobros', error: error.message });
+    res.status(500).json({ message: 'Error al obtener cobros' });
   }
 };
 
@@ -26,8 +26,7 @@ exports.getCobroById = async (req, res) => {
     }
     res.json(cobro);
   } catch (error) {
-    console.error('Error al obtener cobro:', error);
-    res.status(500).json({ message: 'Error al obtener cobro', error: error.message });
+    res.status(500).json({ message: 'Error al obtener cobro' });
   }
 };
 
@@ -40,71 +39,39 @@ exports.getCobrosByTrabajoId = async (req, res) => {
     });
     res.json(cobros);
   } catch (error) {
-    console.error('Error al obtener cobros del trabajo:', error);
-    res.status(500).json({ message: 'Error al obtener cobros del trabajo', error: error.message });
+    res.status(500).json({ message: 'Error al obtener cobros del trabajo' });
   }
 };
 
 // Crear un nuevo cobro
 exports.createCobro = async (req, res) => {
-  console.log('=== INICIO REGISTRO COBRO ===');
-  console.log('Datos recibidos del frontend:', JSON.stringify(req.body));
-  
   const transaction = await sequelize.transaction();
   
   try {
-    // Adaptación para compatibilidad con frontend
     const { trabajo_id, monto, metodo_pago, forma_pago, observaciones, observacion } = req.body;
     
-    // Validar los datos recibidos
     if (!trabajo_id) {
-      console.error('ERROR: trabajo_id es requerido');
       await transaction.rollback();
       return res.status(400).json({ message: 'ID de trabajo es requerido' });
     }
     
     if (!monto || isNaN(parseFloat(monto)) || parseFloat(monto) <= 0) {
-      console.error('ERROR: monto inválido:', monto);
       await transaction.rollback();
       return res.status(400).json({ message: 'Monto debe ser un número positivo' });
     }
     
-    console.log('Datos procesados:');
-    console.log('- trabajo_id:', trabajo_id);
-    console.log('- monto:', monto);
-    console.log('- metodo_pago:', metodo_pago);
-    console.log('- forma_pago:', forma_pago);
-    console.log('- observaciones:', observaciones);
-    console.log('- observacion:', observacion);
-    
-    // Verificar que el trabajo existe
     const trabajo = await Trabajo.findByPk(trabajo_id, { transaction });
     if (!trabajo) {
-      console.log('ERROR: Trabajo no encontrado con ID:', trabajo_id);
       await transaction.rollback();
       return res.status(404).json({ message: 'Trabajo no encontrado' });
     }
     
-    // Convertir a números para comparación segura
     const montoNum = parseFloat(monto);
     const costoTotal = parseFloat(trabajo.costo_total);
     const montoPagado = parseFloat(trabajo.monto_pagado);
     const saldoPendiente = costoTotal - montoPagado;
     
-    console.log('Trabajo encontrado:', {
-      id: trabajo.id,
-      descripcion: trabajo.descripcion,
-      costo_total: costoTotal,
-      monto_pagado: montoPagado,
-      saldo_pendiente: saldoPendiente
-    });
-    
-    // Verificar que el monto no exceda el saldo pendiente
     if (montoNum > saldoPendiente) {
-      console.log('ERROR: El monto excede el saldo pendiente', {
-        monto: montoNum,
-        saldo_pendiente: saldoPendiente
-      });
       await transaction.rollback();
       return res.status(400).json({ 
         message: 'El monto del cobro no puede exceder el saldo pendiente',
@@ -112,33 +79,20 @@ exports.createCobro = async (req, res) => {
       });
     }
     
-    // Obtener el ID del usuario que está realizando la operación
-    const usuarioId = req.user ? req.user.id : 1; // Si no hay usuario en la sesión, usar ID 1 por defecto
-    console.log('Usuario ID:', usuarioId);
-    
-    // Determinar la forma de pago final (para compatibilidad con diferentes nombres de campo)
+    const usuarioId = req.user ? req.user.id : 1;
     const formaPagoFinal = forma_pago || metodo_pago || 'efectivo';
-    console.log('Forma de pago final:', formaPagoFinal);
-    
-    // Determinar las observaciones finales (para compatibilidad con diferentes nombres de campo)
     const observacionesFinal = observaciones || observacion || '';
-    console.log('Observaciones finales:', observacionesFinal);
     
-    // Crear el cobro
     const datosCobro = {
       trabajo_id,
-      fecha: new Date(),
+      fecha: getBoliviaDateTime(),
       monto: montoNum,
       tipo_pago: formaPagoFinal,
       observacion: observacionesFinal
     };
     
-    console.log('Datos a insertar en la tabla cobros:', datosCobro);
-    
     const cobro = await Cobro.create(datosCobro, { transaction });
-    console.log('Cobro creado con ID:', cobro.id);
     
-    // Actualizar el trabajo con el nuevo monto pagado
     const nuevoMontoPagado = montoPagado + montoNum;
     let nuevoEstadoPago = 'Pendiente';
     
@@ -152,9 +106,7 @@ exports.createCobro = async (req, res) => {
       monto_pagado: nuevoMontoPagado,
       estado_pago: nuevoEstadoPago
     }, { transaction });
-    console.log('Trabajo actualizado con nuevo monto pagado:', nuevoMontoPagado);
     
-    // Registrar el movimiento en caja
     const ultimoMovimiento = await Caja.findOne({
       order: [['id', 'DESC']]
     }, { transaction });
@@ -163,7 +115,7 @@ exports.createCobro = async (req, res) => {
     const nuevoSaldo = saldoActual + montoNum;
     
     await Caja.create({
-      fecha_hora: new Date(),
+      fecha_hora: getBoliviaDateTime(),
       tipo_movimiento: 'entrada',
       concepto: 'Cobro',
       monto: montoNum,
@@ -176,13 +128,8 @@ exports.createCobro = async (req, res) => {
       observaciones: observacionesFinal || 'Cobro registrado automáticamente'
     }, { transaction });
     
-    console.log('Movimiento de caja registrado con saldo:', nuevoSaldo);
-    
     await transaction.commit();
-    console.log('Transacción completada exitosamente');
-    console.log('=== FIN REGISTRO COBRO ===');
     
-    // Devolver el cobro creado
     res.status(201).json({
       id: cobro.id,
       trabajo_id: cobro.trabajo_id,
@@ -194,15 +141,7 @@ exports.createCobro = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('ERROR EN REGISTRO COBRO:', error);
-    console.log('Detalles adicionales del error:');
-    console.log('- Mensaje:', error.message);
-    console.log('- Stack:', error.stack);
-    if (error.errors) {
-      console.log('- Errores de validación:', JSON.stringify(error.errors));
-    }
-    console.log('=== FIN ERROR REGISTRO COBRO ===');
-    res.status(500).json({ message: 'Error al crear cobro: ' + error.message, error: true });
+    res.status(500).json({ message: 'Error al crear cobro' });
   }
 };
 
@@ -304,7 +243,7 @@ exports.updateCobro = async (req, res) => {
       
       // Crear el movimiento en caja
       await Caja.create({
-        fecha_hora: new Date(),
+        fecha_hora: getBoliviaDateTime(),
         tipo_movimiento: 'entrada',
         concepto: 'Cobro',
         monto,
@@ -323,8 +262,7 @@ exports.updateCobro = async (req, res) => {
     res.json(cobro);
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al actualizar cobro:', error);
-    res.status(500).json({ message: 'Error al actualizar cobro', error: error.message });
+    res.status(500).json({ message: 'Error al actualizar cobro' });
   }
 };
 
@@ -422,23 +360,17 @@ exports.deleteCobro = async (req, res) => {
     res.json({ message: 'Cobro eliminado correctamente' });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al eliminar cobro:', error);
-    res.status(500).json({ message: 'Error al eliminar cobro', error: error.message });
+    res.status(500).json({ message: 'Error al eliminar cobro' });
   }
 };
 
 // Obtener cobros del día actual
 exports.getCobrosDiarios = async (req, res) => {
   try {
-    console.log('=== INICIO CONSULTA COBROS DIARIOS ===');
-    // Definir el rango de fechas para el día actual
     const hoy = new Date();
     const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
     const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
     
-    console.log('Consultando cobros desde:', fechaInicio, 'hasta:', fechaFin);
-    
-    // Consulta básica sin relaciones para evitar errores
     const cobros = await Cobro.findAll({
       where: {
         fecha: {
@@ -449,28 +381,20 @@ exports.getCobrosDiarios = async (req, res) => {
       order: [['fecha', 'DESC']]
     });
     
-    console.log('Cobros encontrados:', cobros.length);
-    
-    // Calcular el total cobrado
     const totalCobrado = cobros.reduce((sum, cobro) => sum + parseFloat(cobro.monto), 0);
-    console.log('Total cobrado:', totalCobrado);
     
-    // Obtener información adicional de trabajos y clientes
     const cobrosConInfo = [];
     
     for (const cobro of cobros) {
       try {
-        // Obtener información del trabajo asociado
         const trabajo = await Trabajo.findByPk(cobro.trabajo_id);
         
-        // Obtener información del cliente a través del trabajo
         let cliente = null;
         if (trabajo && trabajo.cliente_id) {
           const Cliente = require('../models/cliente');
           cliente = await Cliente.findByPk(trabajo.cliente_id);
         }
         
-        // Crear objeto con información completa
         cobrosConInfo.push({
           ...cobro.toJSON(),
           trabajo: trabajo ? {
@@ -483,111 +407,16 @@ exports.getCobrosDiarios = async (req, res) => {
           } : null
         });
       } catch (error) {
-        // Si hay error al obtener información adicional, incluir solo el cobro básico
-        console.error(`Error al obtener info adicional para cobro ${cobro.id}:`, error);
         cobrosConInfo.push(cobro.toJSON());
       }
     }
     
-    console.log('=== FIN CONSULTA COBROS DIARIOS ===');
-    
-    // Devolver los resultados
     res.json({
       cobros: cobrosConInfo,
       totalCobrado,
       fecha: fechaInicio
     });
   } catch (error) {
-    console.error('Error al obtener cobros diarios:', error);
-    res.status(500).json({ 
-      message: 'Error al obtener cobros diarios', 
-      error: error.message,
-      stack: error.stack
-    });
+    res.status(500).json({ message: 'Error al obtener cobros diarios' });
   }
 };
-
-// Actualizar todos los cobros existentes sin cliente_id
-/*
-exports.updateCobrosCliente = async (req, res) => {
-  try {
-    console.log('=== INICIO ACTUALIZACIÓN DE COBROS EXISTENTES ===');
-    
-    // Importar el modelo de Trabajo si no está disponible
-    const Trabajo = require('../models/trabajo');
-    
-    // Obtener todos los cobros que no tienen cliente_id
-    const cobros = await Cobro.findAll({
-      where: {
-        cliente_id: null
-      }
-    });
-    
-    console.log(`Se encontraron ${cobros.length} cobros sin cliente_id.`);
-    
-    // Para cada cobro, obtener el trabajo y actualizar el cliente_id
-    let actualizados = 0;
-    let fallidos = 0;
-    
-    for (const cobro of cobros) {
-      try {
-        // Obtener el trabajo asociado al cobro
-        const trabajo = await Trabajo.findByPk(cobro.trabajo_id);
-        
-        if (trabajo && trabajo.cliente_id) {
-          // Actualizar el cobro con el cliente_id del trabajo
-          await cobro.update({
-            cliente_id: trabajo.cliente_id
-          });
-          
-          actualizados++;
-          console.log(`✅ Cobro #${cobro.id} actualizado con cliente_id: ${trabajo.cliente_id}`);
-        } else {
-          console.log(`⚠️ No se pudo actualizar el cobro #${cobro.id}, trabajo no encontrado o sin cliente_id`);
-          fallidos++;
-        }
-      } catch (error) {
-        console.error(`Error al actualizar cobro #${cobro.id}:`, error);
-        fallidos++;
-      }
-    }
-    
-    console.log(`=== FIN ACTUALIZACIÓN DE COBROS EXISTENTES ===`);
-    console.log(`Total de cobros procesados: ${cobros.length}`);
-    console.log(`Cobros actualizados: ${actualizados}`);
-    console.log(`Cobros no actualizados: ${fallidos}`);
-    
-    // Si se llama como API, devolver el resultado
-    if (res) {
-      res.json({
-        success: true,
-        message: 'Actualización de cobros completada',
-        stats: {
-          total: cobros.length,
-          actualizados,
-          fallidos
-        }
-      });
-    }
-    
-    return {
-      total: cobros.length,
-      actualizados,
-      fallidos
-    };
-  } catch (error) {
-    console.error('Error durante la actualización de cobros:', error);
-    
-    // Si se llama como API, devolver el error
-    if (res) {
-      res.status(500).json({
-        success: false,
-        message: 'Error al actualizar cobros con cliente_id',
-        error: error.message
-      });
-    }
-    
-    throw error;
-  }
-};
-*/

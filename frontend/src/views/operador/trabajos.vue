@@ -51,45 +51,51 @@
     <!-- Vista de tabla -->
     <div v-if="vista === 'tabla'">
       <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded shadow">
+        <table class="min-w-[900px] md:min-w-full bg-white rounded shadow text-xs md:text-sm">
           <thead>
             <tr class="bg-gray-100">
-              <th class="px-4 py-2">ID</th>
-              <th class="px-4 py-2">Fecha Programada</th>
-              <th class="px-4 py-2">Cliente</th>
-              <th class="px-4 py-2">Tipo</th>
-              <th class="px-4 py-2">Dirección</th>
-              <th class="px-4 py-2">Estado</th>
-              <th class="px-4 py-2">Fecha Finalización</th>
-              <th class="px-4 py-2">Costo Total</th>
-              <th class="px-4 py-2">Pagado</th>
-              <th class="px-4 py-2">Saldo</th>
-              <th class="px-4 py-2">Estado Pago</th>
-              <th class="px-4 py-2">Acciones</th>
+              <th class="px-2 py-1">ID</th>
+              <th class="px-2 py-1">Fecha</th>
+              <th class="px-2 py-1">Cliente</th>
+              <th class="px-2 py-1 hidden sm:table-cell">Tipo</th>
+              <th class="px-2 py-1 hidden md:table-cell">Dirección</th>
+              <th class="px-2 py-1">Estado</th>
+              <th class="px-2 py-1 hidden md:table-cell">Finalización</th>
+              <th class="px-2 py-1">Costo</th>
+              <th class="px-2 py-1 hidden sm:table-cell">Pagado</th>
+              <th class="px-2 py-1 hidden sm:table-cell">Saldo</th>
+              <th class="px-2 py-1">Pago</th>
+              <th class="px-2 py-1">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="trabajo in trabajosPaginados" :key="trabajo.id" class="border-b">
-              <td class="px-4 py-2">{{ trabajo.id }}</td>
-              <td class="px-4 py-2">{{ trabajo.fecha_programada || '-' }}</td>
-              <td class="px-4 py-2">{{ trabajo.cliente || (trabajo.cliente_id ? 'Cliente #' + trabajo.cliente_id : 'Sin cliente') }}</td>
-              <td class="px-4 py-2">{{ trabajo.tipo || '-' }}</td>
-              <td class="px-4 py-2">{{ trabajo.direccion_trabajo || trabajo.direccion || '-' }}</td>
-              <td class="px-4 py-2">
+              <td class="px-2 py-1">{{ trabajo.id }}</td>
+              <td class="px-2 py-1">{{ trabajo.fecha_programada || '-' }}</td>
+              <td class="px-2 py-1">{{ trabajo.cliente || (trabajo.cliente_id ? 'Cliente #' + trabajo.cliente_id : 'Sin cliente') }}</td>
+              <td class="px-2 py-1 hidden sm:table-cell">{{ trabajo.tipo || '-' }}</td>
+              <td class="px-2 py-1 hidden md:table-cell">{{ trabajo.direccion_trabajo || trabajo.direccion || '-' }}</td>
+              <td class="px-2 py-1">
                 <span :class="estadoClase(trabajo.estado)">{{ trabajo.estado }}</span>
               </td>
-              <td class="px-4 py-2">{{ trabajo.fecha_finalizacion || '-' }}</td>
-              <td class="px-4 py-2">{{ formatCurrency(trabajo.costo_total) }}</td>
-              <td class="px-4 py-2">{{ formatCurrency(trabajo.monto_pagado) }}</td>
-              <td class="px-4 py-2">{{ formatCurrency(trabajo.saldo_pendiente) }}</td>
-              <td class="px-4 py-2">
-                <span :class="estadoPagoClase(trabajo.estado_pago)">{{ trabajo.estado_pago }}</span>
-              </td>
-              <td class="px-4 py-2 flex gap-2">
-                <button class="text-blue-600 hover:underline" @click="verDetalles(trabajo)">Detalles</button>
-                <button class="text-yellow-600 hover:underline" @click="editarTrabajo(trabajo)">Editar</button>
-                <button class="text-green-600 hover:underline" @click="generarComprobante(trabajo)">Comprobante</button>
-                <button class="text-purple-600 hover:underline" @click="abrirModalEstado(trabajo)">Cambiar Estado</button>
+              <td class="px-2 py-1 hidden md:table-cell">{{ trabajo.fecha_finalizacion || '-' }}</td>
+              <td class="px-2 py-1">{{ formatCurrency(trabajo.costo_total) }}</td>
+              <td class="px-2 py-1 hidden sm:table-cell">{{ formatCurrency(trabajo.monto_pagado) }}</td>
+              <td class="px-2 py-1 hidden sm:table-cell">{{ formatCurrency(trabajo.saldo_pendiente) }}</td>
+              <td class="px-2 py-1">{{ trabajo.estado_pago }}</td>
+              <td class="px-2 py-1 flex gap-1 flex-wrap">
+                <button class="p-1 rounded hover:bg-blue-100" title="Detalles" @click="verDetalles(trabajo)">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                </button>
+                <button class="p-1 rounded hover:bg-yellow-100" title="Editar" @click="editarTrabajo(trabajo)">
+                  <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-2.828 1.172H7v-2a4 4 0 011.172-2.828z" /></svg>
+                </button>
+                <button class="p-1 rounded hover:bg-green-100" title="Comprobante" @click="generarComprobante(trabajo)">
+                  <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2a4 4 0 014-4h3m4 4v6a2 2 0 01-2 2H7a2 2 0 01-2-2v-6a2 2 0 012-2h3a4 4 0 014 4v2" /></svg>
+                </button>
+                <button class="p-1 rounded hover:bg-purple-100" title="Cambiar Estado" @click="abrirModalEstado(trabajo)">
+                  <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                </button>
               </td>
             </tr>
             <tr v-if="trabajosPaginados.length === 0">
@@ -155,11 +161,45 @@
       @cerrar="cerrarModalEditar"
       @guardar="guardarTrabajo"
     />
+    <!-- Modal para cambiar estado de pago -->
+    <div v-if="modalPago.visible" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div class="bg-white rounded shadow-lg p-6 w-96 relative">
+        <h2 class="text-lg font-bold mb-4">Cambiar Estado de Pago</h2>
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">Trabajo #{{ modalPago.trabajo?.id }}</p>
+          <p class="text-sm text-gray-600">Costo Total: {{ formatCurrency(modalPago.trabajo?.costo_total) }}</p>
+          <p class="text-sm text-gray-600">Monto Pagado: {{ formatCurrency(modalPago.trabajo?.monto_pagado) }}</p>
+          <p class="text-sm text-gray-600">Saldo Pendiente: {{ formatCurrency(modalPago.trabajo?.saldo_pendiente) }}</p>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-2">Nuevo Estado de Pago</label>
+          <select v-model="modalPago.nuevoEstado" class="border rounded px-2 py-1 w-full">
+            <option value="Pendiente">Pendiente</option>
+            <option value="Parcial">Parcial</option>
+            <option value="Pagado">Pagado</option>
+          </select>
+        </div>
+        <div v-if="modalPago.nuevoEstado === 'Parcial'" class="mb-4">
+          <label class="block text-sm font-medium mb-2">Monto a Pagar</label>
+          <input 
+            type="number" 
+            v-model="modalPago.montoPago" 
+            class="border rounded px-2 py-1 w-full"
+            :max="modalPago.trabajo?.saldo_pendiente"
+            step="0.01"
+          />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400" @click="cerrarModalPago">Cancelar</button>
+          <button class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700" @click="confirmarCambioPago">Guardar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import CalendarioTrabajos from '@/components/CalendarioTrabajos.vue'
 import DetallesTrabajo from '@/components/DetallesTrabajo.vue'
 import EditarTrabajo from '@/components/EditarTrabajo.vue'
@@ -178,10 +218,18 @@ const cargando = ref(false)
 const error = ref(null)
 const modalDetalles = ref({ visible: false, trabajo: null })
 const modalEditar = ref({ visible: false, trabajo: null })
+const menuAbierto = ref(null)
+const modalPago = ref({ 
+  visible: false, 
+  trabajo: null, 
+  nuevoEstado: 'Pendiente',
+  montoPago: 0
+})
 
 // Cargar trabajos al iniciar el componente
 onMounted(async () => {
   await cargarTrabajos()
+  document.addEventListener('click', handleClickOutside)
 })
 
 // Función para cargar los trabajos desde la API
@@ -390,8 +438,67 @@ function registrarCobro(trabajo) {
   // Lógica para registrar cobro (próximamente)
   // Esta función redirigirá a la caja-diaria o abrirá un modal para registrar el cobro
 }
+function toggleMenu(id) {
+  menuAbierto.value = menuAbierto.value === id ? null : id
+}
+function closeMenu() {
+  menuAbierto.value = null
+}
+// Cerrar menú al hacer clic fuera
+function handleClickOutside(event) {
+  const menus = document.querySelectorAll('.trabajos-container .z-10')
+  let clickedInside = false
+  menus.forEach(menu => {
+    if (menu.contains(event.target)) clickedInside = true
+  })
+  if (!clickedInside) closeMenu()
+}
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+
+function cerrarModalPago() {
+  modalPago.value.visible = false
+  modalPago.value.trabajo = null
+  modalPago.value.nuevoEstado = 'Pendiente'
+  modalPago.value.montoPago = 0
+}
+async function confirmarCambioPago() {
+  try {
+    const trabajo = modalPago.value.trabajo
+    const nuevoEstado = modalPago.value.nuevoEstado
+    let montoPagado = trabajo.monto_pagado
+
+    if (nuevoEstado === 'Parcial') {
+      montoPagado += Number(modalPago.value.montoPago)
+    } else if (nuevoEstado === 'Pagado') {
+      montoPagado = trabajo.costo_total
+    }
+
+    const trabajoActualizado = {
+      ...trabajo,
+      estado_pago: nuevoEstado,
+      monto_pagado: montoPagado
+    }
+
+    await updateTrabajo(trabajo.id, trabajoActualizado)
+    await cargarTrabajos()
+    cerrarModalPago()
+  } catch (error) {
+    console.error('Error al actualizar el estado de pago:', error)
+    // Aquí podrías mostrar un mensaje de error al usuario
+  }
+}
 </script>
 
 <style scoped>
 .trabajos-container { min-height: 80vh; }
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease;
+}
 </style>

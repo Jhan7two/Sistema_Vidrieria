@@ -4,9 +4,13 @@ const User = require('../models/user');
 
 // Generar token JWT
 const generateToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado en las variables de entorno');
+  }
+  
   return jwt.sign(
     { id: user.id, username: user.nombre_usuario, role: user.rol },
-    process.env.JWT_SECRET || 'sistema_vidrieria_secret_key',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || '2d' }
   );
 };
@@ -24,8 +28,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    console.log(`Intento de inicio de sesión: ${username}`);
-
     // Buscar usuario
     const user = await User.findOne({
       where: {
@@ -35,7 +37,6 @@ exports.login = async (req, res) => {
     });
 
     if (!user) {
-      console.log(`Usuario no encontrado: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -45,7 +46,6 @@ exports.login = async (req, res) => {
     // Verificar contraseña
     const isMatch = await user.validPassword(password);
     if (!isMatch) {
-      console.log(`Contraseña incorrecta para: ${username}`);
       return res.status(401).json({
         success: false,
         message: 'Credenciales inválidas'
@@ -54,7 +54,6 @@ exports.login = async (req, res) => {
 
     // Actualizar último acceso
     await user.update({ ultimo_acceso: new Date() });
-    console.log(`Inicio de sesión exitoso: ${username}`);
 
     // Generar token
     const token = generateToken(user);
@@ -83,11 +82,9 @@ exports.login = async (req, res) => {
       user: userData
     });
   } catch (error) {
-    console.error('Error en inicio de sesión:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor',
-      error: error.message
+      message: 'Error en el servidor'
     });
   }
 };
@@ -140,11 +137,9 @@ exports.getMe = async (req, res) => {
       token: token
     });
   } catch (error) {
-    console.error('Error al obtener información del usuario:', error);
     res.status(500).json({
       success: false,
-      message: 'Error en el servidor',
-      error: error.message
+      message: 'Error en el servidor'
     });
   }
 };

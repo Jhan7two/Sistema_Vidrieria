@@ -115,6 +115,21 @@
               </div>
               
               <div>
+                <label class="block text-sm font-medium mb-1">Estado de Pago</label>
+                <select 
+                  v-model="formulario.estado_pago" 
+                  class="w-full px-3 py-2 border rounded"
+                  @change="handleEstadoPagoChange"
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Parcial">Parcial</option>
+                  <option value="Pagado">Pagado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
                 <label class="block text-sm font-medium mb-1">Monto pagado</label>
                 <input 
                   type="number" 
@@ -122,9 +137,19 @@
                   min="0" 
                   step="0.01" 
                   class="w-full px-3 py-2 border rounded"
-                  :disabled="true"
+                  :disabled="formulario.estado_pago === 'Pendiente'"
                 />
-                <small class="text-gray-500">Para registrar pagos, use la opción de cobros</small>
+                <small class="text-gray-500">El monto pagado se actualiza automáticamente según el estado</small>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium mb-1">Saldo pendiente</label>
+                <input 
+                  type="text" 
+                  :value="formatCurrency(saldoPendiente)" 
+                  disabled 
+                  class="w-full px-3 py-2 border rounded bg-gray-100"
+                />
               </div>
             </div>
           </div>
@@ -178,6 +203,7 @@ const formulario = ref({
   direccion_trabajo: props.trabajo.direccion_trabajo,
   costo_total: parseFloat(props.trabajo.costo_total),
   monto_pagado: parseFloat(props.trabajo.monto_pagado),
+  estado_pago: props.trabajo.estado_pago,
   observaciones: props.trabajo.observaciones
 });
 
@@ -193,6 +219,35 @@ const clienteTexto = computed(() => {
     return 'Sin cliente';
   }
 });
+
+// Computed para el saldo pendiente
+const saldoPendiente = computed(() => {
+  return formulario.value.costo_total - formulario.value.monto_pagado;
+});
+
+// Función para formatear moneda
+function formatCurrency(value) {
+  if (value === null || value === undefined) return '-';
+  return '$' + parseFloat(value).toFixed(2);
+}
+
+// Función para manejar cambios en el estado de pago
+function handleEstadoPagoChange() {
+  switch (formulario.value.estado_pago) {
+    case 'Pendiente':
+      formulario.value.monto_pagado = 0;
+      break;
+    case 'Pagado':
+      formulario.value.monto_pagado = formulario.value.costo_total;
+      break;
+    case 'Parcial':
+      // Mantener el monto pagado actual si es mayor a 0
+      if (formulario.value.monto_pagado <= 0) {
+        formulario.value.monto_pagado = formulario.value.costo_total / 2; // Por defecto, la mitad
+      }
+      break;
+  }
+}
 
 function formatDateForInput(dateString) {
   if (!dateString) return '';

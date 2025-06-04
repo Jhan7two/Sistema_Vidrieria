@@ -2,6 +2,7 @@ const Gasto = require('../models/gasto');
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { ajustarFechaBolivia, crearFechaBolivia, formatearFechaBolivia } = require('../utils/fechas');
 
 // Obtener todos los gastos
 exports.getGastos = async (req, res) => {
@@ -15,11 +16,9 @@ exports.getGastos = async (req, res) => {
       data: gastos
     });
   } catch (error) {
-    console.error('Error al obtener gastos:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error al obtener gastos',
-      error: error.message 
+      message: 'Error al obtener gastos'
     });
   }
 };
@@ -31,8 +30,21 @@ exports.createGasto = async (req, res) => {
     // Extraer forma_pago del body antes de crear el gasto
     const { forma_pago, ...gastoData } = req.body;
     
-    // Crear el gasto solo con los datos necesarios
-    const gasto = await Gasto.create(gastoData, { transaction });
+    // Usar la fecha tal como viene del frontend para el gasto
+    const fechaGasto = gastoData.fecha ? new Date(gastoData.fecha) : crearFechaBolivia();
+    
+    // Asegurarse de que el monto sea un número
+    if (gastoData.monto) {
+      gastoData.monto = parseFloat(gastoData.monto);
+    }
+    
+    // Crear el gasto con los datos validados
+    const gasto = await Gasto.create({
+      fecha: fechaGasto,
+      monto: gastoData.monto,
+      descripcion: gastoData.descripcion,
+      categoria: gastoData.categoria
+    }, { transaction });
     
     // Obtener el último saldo de caja
     const ultimoMovimiento = await Caja.findOne({
@@ -46,9 +58,9 @@ exports.createGasto = async (req, res) => {
     // Usar ID de usuario predeterminado (1) o del usuario en sesión
     const usuarioId = req.user ? req.user.id : 1;
     
-    // Registrar el movimiento en la tabla caja
-    await Caja.create({
-      fecha_hora: new Date(),
+    // Registrar el movimiento en la tabla caja usando crearFechaBolivia()
+    const movimientoCaja = await Caja.create({
+      fecha_hora: crearFechaBolivia(),
       tipo_movimiento: 'salida',
       concepto: req.body.categoria || 'Gasto general',
       monto: montoNumerico,
@@ -61,19 +73,35 @@ exports.createGasto = async (req, res) => {
       observaciones: `Gasto ID: ${gasto.id}, ${req.body.descripcion}`
     }, { transaction });
     
+    // Actualizar saldos de movimientos posteriores
+    await Caja.update(
+      {
+        saldo_resultante: sequelize.literal(`saldo_resultante + ${montoNumerico}`)
+      },
+      {
+        where: {
+          id: {
+            [Op.gt]: movimientoCaja.id
+          }
+        }
+      },
+      { transaction }
+    );
+    
     await transaction.commit();
     
     res.status(201).json({
       success: true,
-      data: gasto
+      data: {
+        gasto: gasto.toJSON(),
+        movimiento: movimientoCaja.toJSON()
+      }
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al crear gasto:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error al crear gasto',
-      error: error.message 
+      message: 'Error al crear gasto'
     });
   }
 };
@@ -81,9 +109,9 @@ exports.createGasto = async (req, res) => {
 // Obtener gastos del mes actual
 exports.getGastosDelMes = async (req, res) => {
   try {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const now = crearFechaBolivia();
+    const firstDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
 
     const gastos = await Gasto.findAll({
       where: {
@@ -98,23 +126,17 @@ exports.getGastosDelMes = async (req, res) => {
     res.json({
       totalMes: Number.isNaN(totalMes) ? 0 : totalMes,
       gastos: Array.isArray(gastos) ? gastos.map(g => ({
-        dia: g.fecha,
-        monto: g.monto,
-        descripcion: g.descripcion,
-        categoria: g.categoria
-      })) : []
-    });
-    console.log("Respuesta enviada desde getGastosDelMes:", {
-      totalMes: Number.isNaN(totalMes) ? 0 : totalMes,
-      gastos: Array.isArray(gastos) ? gastos.map(g => ({
-        dia: g.fecha,
+        dia: formatearFechaBolivia(g.fecha),
         monto: g.monto,
         descripcion: g.descripcion,
         categoria: g.categoria
       })) : []
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener gastos del mes', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener gastos del mes'
+    });
   }
 };
 
@@ -128,16 +150,19 @@ exports.getDashboardStats = async (req, res) => {
       totalEgresos
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener estadísticas de gastos', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener estadísticas de gastos'
+    });
   }
 };
 
 // Obtener gastos por categoría
 exports.getGastosPorCategoria = async (req, res) => {
   try {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const now = crearFechaBolivia();
+    const firstDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth(), 1));
+    const lastDay = ajustarFechaBolivia(new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
 
     const gastos = await Gasto.findAll({
       where: {
@@ -152,6 +177,146 @@ exports.getGastosPorCategoria = async (req, res) => {
 
     res.json(gastos);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener gastos por categoría', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener gastos por categoría'
+    });
+  }
+};
+
+// Editar un gasto
+exports.updateGasto = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      fecha, 
+      monto, 
+      descripcion, 
+      categoria,
+      forma_pago = 'efectivo'
+    } = req.body;
+    
+    // Validar datos
+    const montoNumerico = parseFloat(monto);
+    if (!monto || isNaN(montoNumerico) || montoNumerico <= 0) {
+      throw new Error('El monto debe ser un número positivo');
+    }
+    
+    // Buscar el gasto existente
+    const gastoExistente = await Gasto.findByPk(id, { transaction });
+    if (!gastoExistente) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    // Calcular la diferencia en el monto
+    const diferenciaMonto = parseFloat(gastoExistente.monto) - montoNumerico;
+    
+    // Actualizar el gasto
+    const fechaGasto = fecha ? ajustarFechaBolivia(new Date(fecha)) : crearFechaBolivia();
+    
+    await gastoExistente.update({
+      fecha: fechaGasto,
+      monto: montoNumerico.toFixed(2),
+      descripcion,
+      categoria
+    }, { transaction });
+    
+    // Actualizar el movimiento en caja
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'gasto',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      // Obtener el saldo anterior al movimiento
+      const saldoAnterior = parseFloat(movimientoCaja.saldo_resultante) + parseFloat(movimientoCaja.monto);
+      const nuevoSaldo = parseFloat((saldoAnterior - montoNumerico).toFixed(2));
+      
+      await movimientoCaja.update({
+        fecha_hora: fechaGasto,
+        monto: montoNumerico.toFixed(2),
+        saldo_resultante: nuevoSaldo,
+        descripcion: descripcion || 'Gasto actualizado',
+        forma_pago,
+        observaciones: `Gasto ID: ${id}, ${descripcion}`
+      }, { transaction });
+    }
+    
+    // Actualizar saldos de movimientos posteriores
+    await Caja.update(
+      {
+        saldo_resultante: sequelize.literal(`saldo_resultante + ${diferenciaMonto}`)
+      },
+      {
+        where: {
+          id: {
+            [Op.gt]: movimientoCaja.id
+          }
+        }
+      },
+      { transaction }
+    );
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      data: gastoExistente
+    });
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al actualizar gasto'
+    });
+  }
+};
+
+// Eliminar un gasto
+exports.deleteGasto = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    
+    // Buscar el gasto
+    const gasto = await Gasto.findByPk(id, { transaction });
+    if (!gasto) {
+      throw new Error('Gasto no encontrado');
+    }
+    
+    // Buscar y eliminar el movimiento en caja
+    const movimientoCaja = await Caja.findOne({
+      where: {
+        tipo_referencia: 'gasto',
+        referencia_id: id
+      },
+      transaction
+    });
+    
+    if (movimientoCaja) {
+      await movimientoCaja.destroy({ transaction });
+    }
+    
+    // Eliminar el gasto
+    await gasto.destroy({ transaction });
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: 'Gasto eliminado correctamente'
+    });
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error al eliminar gasto'
+    });
   }
 };

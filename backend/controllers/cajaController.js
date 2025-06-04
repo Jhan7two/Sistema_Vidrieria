@@ -1,25 +1,33 @@
 const Caja = require('../models/caja');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { ajustarFechaBolivia, crearFechaBolivia, formatearFechaBolivia } = require('../utils/fechas');
 const CierreCaja = require('../models/cierreCaja');
+
+// Constantes para validaciones
+const tiposMovimientoValidos = ['entrada', 'salida'];
+const tiposReferenciaValidos = ['venta', 'gasto', 'cobro', 'ajuste'];
+const formasPagoValidas = ['efectivo', 'transferencia', 'otro'];
 
 // Obtener el saldo actual de la caja
 exports.getSaldoActual = async (req, res) => {
   try {
-    // Obtener el último movimiento de caja para conocer el saldo actual
     const ultimoMovimiento = await Caja.findOne({
-      order: [['id', 'DESC']]
+      order: [['id', 'DESC']],
+      raw: true
     });
     
     const saldo = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
     
     res.json({
       saldo,
-       fecha: new Date() // Puedes mantener esto si lo necesitas en otro lado
+      fecha: formatearFechaBolivia(crearFechaBolivia())
     });
   } catch (error) {
-    console.error('Error al obtener saldo de caja:', error);
-    res.status(500).json({ message: 'Error al obtener saldo de caja', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener saldo de caja'
+    });
   }
 };
 
@@ -27,307 +35,187 @@ exports.getSaldoActual = async (req, res) => {
 exports.getMovimientosDiarios = async (req, res) => {
   try {
     const hoy = new Date();
-    const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+    const fechaInicio = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
+    const fechaFin = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1));
     
     const movimientos = await Caja.findAll({
       where: {
         fecha_hora: {
-          [Op.gte]: fechaInicio,
-          [Op.lt]: fechaFin
+          [Op.between]: [fechaInicio, fechaFin]
         }
       },
-      order: [['fecha_hora', 'DESC']]
+      order: [['fecha_hora', 'DESC']],
+      include: [
+        {
+          model: require('../models/user'),
+          as: 'usuario',
+          attributes: ['nombre_completo']
+        }
+      ]
     });
     
-    // El frontend espera un objeto { movimientos: [] }
-    // Los cálculos adicionales pueden ser útiles, pero no son estrictamente lo que el frontend actual busca en `cargarDatos()`
-    // const totalEntradas = movimientos
-    //   .filter(m => m.tipo_movimiento === 'entrada')
-    //   .reduce((sum, m) => sum + parseFloat(m.monto), 0);
-    // 
-    // const totalSalidas = movimientos
-    //   .filter(m => m.tipo_movimiento === 'salida')
-    //   .reduce((sum, m) => sum + parseFloat(m.monto), 0);
+    // Formatear fechas y montos para mostrar
+    const movimientosFormateados = movimientos.map(mov => {
+      // Asegurarnos de que los montos sean números
+      const monto = parseFloat(mov.monto);
+      const saldo = parseFloat(mov.saldo_resultante);
+      
+      return {
+        ...mov.toJSON(),
+        fecha_hora: formatearFechaBolivia(mov.fecha_hora),
+        monto: isNaN(monto) ? '0.00' : monto.toFixed(2),
+        saldo_resultante: isNaN(saldo) ? '0.00' : saldo.toFixed(2)
+      };
+    });
     
     res.json({
-      movimientos, // Esto es lo que el frontend usa en cargarDatos()
-      // totalEntradas,
-      // totalSalidas,
-      // saldoDia: totalEntradas - totalSalidas,
-      // fecha: fechaInicio
+      movimientos: movimientosFormateados
     });
   } catch (error) {
-    console.error('Error al obtener movimientos diarios:', error);
-    res.status(500).json({ message: 'Error al obtener movimientos diarios', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al obtener movimientos diarios'
+    });
   }
 };
 
 // Registrar un nuevo movimiento en la caja
 exports.registrarMovimiento = async (req, res) => {
-  // Logs de depuración mejorados
-  console.log('=== INICIO REGISTRO MOVIMIENTO CAJA ===');
-  console.log('URL completa:', req.originalUrl);
-  console.log('Método HTTP:', req.method);
-  console.log('Cabeceras:', JSON.stringify(req.headers, null, 2));
-  console.log('Datos recibidos del frontend (body):', JSON.stringify(req.body, null, 2));
-  console.log('Parámetros de URL:', JSON.stringify(req.params, null, 2));
-  console.log('Parámetros de consulta:', JSON.stringify(req.query, null, 2));
+  const transaction = await sequelize.transaction();
   
-  // Verificar que el body no sea undefined o null
-  if (!req.body) {
-    console.error('ERROR: req.body es undefined o null');
-    return res.status(400).json({
-      success: false,
-      message: 'No se recibieron datos en el cuerpo de la petición'
-    });
-  }
-  
-  // Crear transacción
-  let transaction;
   try {
-    transaction = await sequelize.transaction();
-    
-    // Destructuring con valores predeterminados seguros
     const { 
-      tipo_movimiento = null, 
-      concepto = null, 
-      monto = null, 
-      descripcion = '', 
-      forma_pago = null, 
-      observaciones = '' 
+      tipo_movimiento, 
+      concepto, 
+      monto, 
+      descripcion, 
+      forma_pago,
+      observaciones 
     } = req.body;
     
-    console.log('Datos procesados después de destructuring:');
-    console.log('- tipo_movimiento:', tipo_movimiento);
-    console.log('- concepto:', concepto);
-    console.log('- monto:', monto);
-    console.log('- forma_pago:', forma_pago);
-    console.log('- descripcion:', descripcion);
-    console.log('- observaciones:', observaciones);
-    
-    // Validar datos con mensajes específicos para cada validación
-    if (!tipo_movimiento) {
-      console.log('ERROR: Falta tipo_movimiento');
-      await transaction.rollback();
-      return res.status(400).json({ message: 'El tipo de movimiento es obligatorio.' });
+    // Validaciones
+    if (!tiposMovimientoValidos.includes(tipo_movimiento)) {
+      throw new Error('Tipo de movimiento inválido');
     }
     
-    if (!concepto) {
-      console.log('ERROR: Falta concepto');
-      await transaction.rollback();
-      return res.status(400).json({ message: 'El concepto es obligatorio.' });
+    if (!formasPagoValidas.includes(forma_pago)) {
+      throw new Error('Forma de pago inválida');
     }
     
-    if (monto === null || monto === undefined) {
-      console.log('ERROR: Falta monto');
-      await transaction.rollback();
-      return res.status(400).json({ message: 'El monto es obligatorio.' });
+    if (!concepto || !monto) {
+      throw new Error('Concepto y monto son obligatorios');
     }
     
-    if (!forma_pago) {
-      console.log('ERROR: Falta forma_pago');
-      await transaction.rollback();
-      return res.status(400).json({ message: 'La forma de pago es obligatoria.' });
-    }
-    
-    // Validar tipo_movimiento
-    if (tipo_movimiento !== 'entrada' && tipo_movimiento !== 'salida') {
-      console.log('ERROR: tipo_movimiento inválido:', tipo_movimiento);
-      await transaction.rollback();
-      return res.status(400).json({ message: 'El tipo de movimiento debe ser "entrada" o "salida".' });
-    }
-    
-    // Validar forma_pago
-    if (!['efectivo', 'transferencia', 'otro'].includes(forma_pago)) {
-      console.log('ERROR: forma_pago inválida:', forma_pago);
-      await transaction.rollback();
-      return res.status(400).json({ message: 'La forma de pago debe ser "efectivo", "transferencia" o "otro".' });
-    }
-    
-    // Convertir monto a número
+    // Formatear montos
     const montoNumerico = parseFloat(monto);
     if (isNaN(montoNumerico) || montoNumerico <= 0) {
-      console.log('ERROR: El monto debe ser un número positivo');
-      await transaction.rollback();
-      return res.status(400).json({ message: 'El monto debe ser un número positivo.'});
+      throw new Error('El monto debe ser un número positivo');
     }
     
-    // Obtener el último saldo con manejo de errores mejorado
-    console.log('Obteniendo último movimiento...');
-    try {
-      const ultimoMovimiento = await Caja.findOne({
-        order: [['id', 'DESC']],
+    // Obtener último saldo
+    const ultimoMovimiento = await Caja.findOne({
+      order: [['id', 'DESC']],
+      transaction
+    });
+    
+    // Asegurarnos de que el saldo actual sea un número
+    let saldoActual = 0;
+    if (ultimoMovimiento) {
+      const saldoStr = ultimoMovimiento.saldo_resultante.toString();
+      saldoActual = parseFloat(saldoStr);
+      if (isNaN(saldoActual)) {
+        saldoActual = 0;
+      }
+    }
+    
+    // Calcular nuevo saldo
+    let nuevoSaldo = 0;
+    if (tipo_movimiento === 'entrada') {
+      nuevoSaldo = saldoActual + montoNumerico;
+    } else {
+      nuevoSaldo = saldoActual - montoNumerico;
+    }
+    
+    // Asegurarnos de que el nuevo saldo sea un número válido
+    if (isNaN(nuevoSaldo)) {
+      throw new Error('Error al calcular el nuevo saldo');
+    }
+    
+    // Verificar que el usuario existe
+    const usuarioId = req.user ? req.user.id : 1;
+    const usuarioExiste = await sequelize.query(
+      'SELECT id FROM usuarios WHERE id = $1',
+      {
+        bind: [usuarioId],
+        type: sequelize.QueryTypes.SELECT,
         transaction
-      });
-      
-      console.log('Último movimiento encontrado:', ultimoMovimiento ? 'SÍ' : 'NO');
-      if (ultimoMovimiento) {
-        console.log('ID último movimiento:', ultimoMovimiento.id);
-        console.log('Saldo último movimiento:', ultimoMovimiento.saldo_resultante);
       }
-      
-      const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
-      console.log('Saldo actual (parseado):', saldoActual);
-      
-      // Calcular nuevo saldo
-      const nuevoSaldo = tipo_movimiento === 'entrada' 
-        ? saldoActual + montoNumerico
-        : saldoActual - montoNumerico;
-      console.log('Nuevo saldo calculado:', nuevoSaldo);
-      
-      // Usar ID de usuario predeterminado (1)
-      const usuarioId = req.user ? req.user.id : 1;
-      console.log('ID de usuario utilizado:', usuarioId);
-      
-      // Crear el movimiento - Validamos cada campo
-      const datosMovimiento = {
-        fecha_hora: new Date(),
-        tipo_movimiento,
-        concepto,
-        monto: montoNumerico,
-        saldo_resultante: nuevoSaldo,
-        descripcion: descripcion || null,
-        referencia_id: null,
-        tipo_referencia: 'ajuste',
-        forma_pago,
-        usuario_id: usuarioId,
-        observaciones: observaciones || `Movimiento manual de caja: ${concepto}`
-      };
-      
-      console.log('Datos a insertar en la tabla caja:', JSON.stringify(datosMovimiento, null, 2));
-      
-      // Verificar la existencia de la tabla y el usuario antes de insertar
-      try {
-        // Verificar que la tabla existe
-        await sequelize.query('SHOW TABLES LIKE "caja"', { transaction });
-        
-        // Verificar que el usuario existe
-        const verificarUsuario = await sequelize.query(
-          'SELECT * FROM usuarios WHERE id = ?', 
-          { 
-            replacements: [usuarioId],
-            type: sequelize.QueryTypes.SELECT,
-            transaction
-          }
-        );
-        
-        if (verificarUsuario.length === 0) {
-          console.error('ERROR: El usuario_id no existe en la tabla usuarios');
-          await transaction.rollback();
-          return res.status(400).json({ 
-            message: 'El usuario especificado no existe en la base de datos.',
-            usuario_id: usuarioId
-          });
-        }
-        
-        console.log('Verificaciones previas pasadas. Creando movimiento...');
-        
-        // Crear el movimiento
-        const movimiento = await Caja.create(datosMovimiento, { transaction });
-        console.log('Movimiento creado con ID:', movimiento.id);
-        
-        // Consultar si el trigger creó una venta o gasto correspondiente
-        let tipoReferencia, referenciaId;
-        
-        if (tipo_movimiento === 'entrada') {
-          // Buscar la venta más reciente que coincida con el monto y fecha
-          const venta = await sequelize.query(
-            'SELECT id FROM ventas WHERE monto = ? AND fecha = DATE(?) ORDER BY id DESC LIMIT 1',
-            {
-              replacements: [montoNumerico, datosMovimiento.fecha_hora],
-              type: sequelize.QueryTypes.SELECT,
-              transaction
-            }
-          );
-          
-          if (venta && venta.length > 0) {
-            tipoReferencia = 'venta';
-            referenciaId = venta[0].id;
-            console.log(`Encontrada venta relacionada con ID: ${referenciaId}`);
-          }
-        } else {
-          // Buscar el gasto más reciente que coincida con el monto y fecha
-          const gasto = await sequelize.query(
-            'SELECT id FROM gastos WHERE monto = ? AND fecha = DATE(?) ORDER BY id DESC LIMIT 1',
-            {
-              replacements: [montoNumerico, datosMovimiento.fecha_hora],
-              type: sequelize.QueryTypes.SELECT,
-              transaction
-            }
-          );
-          
-          if (gasto && gasto.length > 0) {
-            tipoReferencia = 'gasto';
-            referenciaId = gasto[0].id;
-            console.log(`Encontrado gasto relacionado con ID: ${referenciaId}`);
-          }
-        }
-        
-        // Si se encontró una referencia, actualizar el movimiento de caja
-        if (referenciaId) {
-          await sequelize.query(
-            'UPDATE caja SET referencia_id = ?, tipo_referencia = ? WHERE id = ?',
-            {
-              replacements: [referenciaId, tipoReferencia, movimiento.id],
-              transaction
-            }
-          );
-          console.log(`Movimiento de caja actualizado con referencia: ${tipoReferencia} ID: ${referenciaId}`);
-          
-          // Actualizar el objeto de movimiento para la respuesta
-          movimiento.referencia_id = referenciaId;
-          movimiento.tipo_referencia = tipoReferencia;
-        }
-        
-        await transaction.commit();
-        console.log('Transacción completada exitosamente');
-        console.log('=== FIN REGISTRO MOVIMIENTO CAJA ===');
-        
-        // Devolver respuesta exitosa
-        return res.status(201).json({ 
-          success: true,
-          message: 'Movimiento registrado exitosamente', 
-          movimiento 
-        });
-        
-      } catch (dbError) {
-        await transaction.rollback();
-        console.error('ERROR EN OPERACIÓN DE BASE DE DATOS:', dbError);
-        console.log('=== FIN ERROR REGISTRO MOVIMIENTO CAJA ===');
-        return res.status(500).json({ 
-          success: false,
-          message: 'Error en operación de base de datos', 
-          error: dbError.message 
-        });
-      }
-      
-    } catch (saldoError) {
-      await transaction.rollback();
-      console.error('ERROR AL OBTENER SALDO:', saldoError);
-      console.log('=== FIN ERROR REGISTRO MOVIMIENTO CAJA ===');
-      return res.status(500).json({ 
-        success: false,
-        message: 'Error al obtener saldo actual', 
-        error: saldoError.message 
-      });
+    );
+    
+    if (!usuarioExiste.length) {
+      throw new Error('Usuario no encontrado');
     }
     
+    // Crear movimiento con fecha ajustada a Bolivia
+    const fecha_hora = crearFechaBolivia();
+    
+    // Crear el movimiento con valores numéricos
+    const movimiento = await Caja.create({
+      fecha_hora,
+      tipo_movimiento,
+      concepto,
+      monto: montoNumerico,
+      saldo_resultante: nuevoSaldo,
+      descripcion: descripcion || null,
+      referencia_id: null,
+      tipo_referencia: 'ajuste',
+      forma_pago,
+      usuario_id: usuarioId,
+      observaciones: observaciones || null
+    }, { transaction });
+    
+    // Si es entrada, crear venta
+    if (tipo_movimiento === 'entrada') {
+      const venta = await sequelize.query(
+        'INSERT INTO ventas (fecha, monto, tipo, descripcion, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        {
+          bind: [
+            fecha_hora,
+            montoNumerico,
+            'venta completa',
+            descripcion || 'Venta registrada desde caja',
+            fecha_hora
+          ],
+          type: sequelize.QueryTypes.INSERT,
+          transaction
+        }
+      );
+      
+      if (venta && venta[0] && venta[0].id) {
+        await movimiento.update({
+          referencia_id: venta[0].id,
+          tipo_referencia: 'venta'
+        }, { transaction });
+      }
+    }
+    
+    await transaction.commit();
+    
+    // Formatear fecha para la respuesta
+    const movimientoFormateado = {
+      ...movimiento.toJSON(),
+      fecha_hora: formatearFechaBolivia(movimiento.fecha_hora)
+    };
+    
+    return res.status(201).json({ 
+      success: true,
+      movimiento: movimientoFormateado
+    });
   } catch (error) {
-    if (transaction) await transaction.rollback();
-    console.error('ERROR GENERAL EN REGISTRO MOVIMIENTO CAJA:', error);
-    console.log('Detalles adicionales del error:');
-    console.log('- Mensaje:', error.message);
-    console.log('- Stack:', error.stack);
-    if (error.errors) {
-      console.log('- Errores de validación:', JSON.stringify(error.errors, null, 2));
-    }
-    console.log('=== FIN ERROR REGISTRO MOVIMIENTO CAJA ===');
-    
+    await transaction.rollback();
     return res.status(500).json({ 
       success: false,
-      message: 'Error al registrar movimiento de caja', 
-      error: error.message 
+      message: 'Error al registrar movimiento'
     });
   }
 };
@@ -335,59 +223,46 @@ exports.registrarMovimiento = async (req, res) => {
 // Realizar cierre de caja
 exports.cerrarCaja = async (req, res) => {
   const transaction = await sequelize.transaction();
+  
   try {
     const hoy = new Date();
-    const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+    const fechaInicio = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
+    const fechaFin = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1));
     
-    // Verificar si ya existe un cierre para el día actual
+    // Verificar cierre existente
     const cierreExistente = await CierreCaja.findOne({
       where: {
         fecha: {
-          [Op.gte]: fechaInicio,
-          [Op.lt]: fechaFin
+          [Op.between]: [fechaInicio, fechaFin]
         }
       },
       transaction
     });
     
     if (cierreExistente) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'Ya existe un cierre de caja para el día de hoy',
-        cierre_id: cierreExistente.id
-      });
+      throw new Error('Ya existe un cierre de caja para el día de hoy');
     }
     
-    // Usar directamente el ID de usuario de la sesión o ID predeterminado
-    const usuarioId = req.user ? req.user.id : 1;
-    console.log('ID de usuario para cierre de caja:', usuarioId);
-    
-    const { observaciones } = req.body;
-    
-    // Obtener los movimientos del día
-    const movimientosDia = await Caja.findAll({
+    // Obtener movimientos del día
+    const movimientos = await Caja.findAll({
       where: {
         fecha_hora: {
-          [Op.gte]: fechaInicio,
-          [Op.lt]: fechaFin
+          [Op.between]: [fechaInicio, fechaFin]
         }
       },
       transaction
     });
     
     // Calcular totales
-    const totalEntradas = movimientosDia
+    const totalEntradas = movimientos
       .filter(m => m.tipo_movimiento === 'entrada')
       .reduce((sum, m) => sum + parseFloat(m.monto), 0);
-      
-    const totalSalidas = movimientosDia
+    
+    const totalSalidas = movimientos
       .filter(m => m.tipo_movimiento === 'salida')
       .reduce((sum, m) => sum + parseFloat(m.monto), 0);
     
-    const saldoFinal = totalEntradas - totalSalidas;
-    
-    // Obtener el saldo actual
+    // Obtener saldo actual
     const ultimoMovimiento = await Caja.findOne({
       order: [['id', 'DESC']],
       transaction
@@ -395,79 +270,69 @@ exports.cerrarCaja = async (req, res) => {
     
     const saldoActual = ultimoMovimiento ? parseFloat(ultimoMovimiento.saldo_resultante) : 0;
     
-    // Guardar el cierre en la tabla cierres_caja con los nombres de columnas correctos
-    const cierreCaja = await CierreCaja.create({
-      fecha: fechaInicio,
-      total_ventas: totalEntradas, // Cambiado de total_entradas a total_ventas
-      total_gastos: totalSalidas, // Cambiado de total_salidas a total_gastos
-      saldo_final: saldoFinal,
-      usuario_id: usuarioId,
-      observaciones: observaciones || 'Cierre de caja diario'
+    // Crear cierre con fecha ajustada a Bolivia
+    const fecha_cierre = crearFechaBolivia();
+    const cierre = await CierreCaja.create({
+      fecha: fecha_cierre,
+      total_ventas: totalEntradas,
+      total_gastos: totalSalidas,
+      saldo_final: saldoActual,
+      observaciones: req.body.observaciones || 'Cierre de caja diario',
+      usuario_id: req.user ? req.user.id : 1
     }, { transaction });
-    
-    console.log('Cierre de caja guardado con ID:', cierreCaja.id);
     
     await transaction.commit();
     
-    // Devolver respuesta con los datos del cierre
-    res.status(200).json({
-      message: 'Caja cerrada correctamente',
-      fecha: fechaInicio,
-      total_entradas: totalEntradas, // Mantenemos estos nombres en la respuesta para no romper el frontend
+    // Formatear fecha para la respuesta
+    const cierreFormateado = {
+      ...cierre.toJSON(),
+      fecha: formatearFechaBolivia(cierre.fecha)
+    };
+    
+    res.json({
+      success: true,
+      message: 'Caja cerrada exitosamente',
+      cierre: cierreFormateado,
+      total_entradas: totalEntradas,
       total_salidas: totalSalidas,
-      saldo_final: saldoFinal,
-      saldo_actual: saldoActual,
-      cierre_id: cierreCaja.id
+      saldo_final: saldoActual
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Error al intentar cerrar caja:', error);
-    res.status(500).json({ message: 'Error al cerrar caja', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al cerrar la caja'
+    });
   }
 };
 
-// Obtener historial de cierres de caja
+// Obtener historial de cierres
 exports.getHistorialCierres = async (req, res) => {
   try {
-    // Parámetros de paginación y filtros
     let { page = 1, limit = 10, desde, hasta } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
     
-    // Convertir explícitamente page y limit a números enteros
-    try {
-      page = parseInt(page);
-      limit = parseInt(limit);
-      
-      // Validar que sean números válidos
-      if (isNaN(page) || page < 1) page = 1;
-      if (isNaN(limit) || limit < 1) limit = 10;
-    } catch (err) {
-      console.error('Error al parsear parámetros de paginación:', err);
-      page = 1;
-      limit = 10;
-    }
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 10;
     
     const offset = (page - 1) * limit;
-    
-    // Construir condiciones de filtro
     const whereCondition = {};
     
     if (desde || hasta) {
       whereCondition.fecha = {};
       
       if (desde) {
-        const fechaDesde = new Date(desde);
-        whereCondition.fecha[Op.gte] = fechaDesde;
+        whereCondition.fecha[Op.gte] = ajustarFechaBolivia(new Date(desde));
       }
       
       if (hasta) {
-        const fechaHasta = new Date(hasta);
-        // Ajustar al final del día
+        const fechaHasta = ajustarFechaBolivia(new Date(hasta));
         fechaHasta.setHours(23, 59, 59, 999);
         whereCondition.fecha[Op.lte] = fechaHasta;
       }
     }
     
-    // Obtener cierres de caja con paginación
     const { count, rows: cierres } = await CierreCaja.findAndCountAll({
       where: whereCondition,
       include: [
@@ -479,81 +344,71 @@ exports.getHistorialCierres = async (req, res) => {
         }
       ],
       order: [['fecha', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit,
+      offset,
+      subQuery: false
     });
     
-    // Calcular totales generales usando los nombres de columnas correctos
+    // Formatear fechas para mostrar
+    const cierresFormateados = cierres.map(cierre => ({
+      ...cierre.toJSON(),
+      fecha: formatearFechaBolivia(cierre.fecha)
+    }));
+    
     const totalEntradas = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.total_ventas || 0), 0);
     const totalSalidas = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.total_gastos || 0), 0);
     const totalSaldo = cierres.reduce((sum, cierre) => sum + parseFloat(cierre.saldo_final || 0), 0);
     
-    // Transformar los datos para que coincidan con lo que espera el frontend
-    const cierresTransformados = cierres.map(cierre => {
-      const cierreJSON = cierre.toJSON();
-      return {
-        ...cierreJSON,
-        // Agregar propiedades con los nombres que espera el frontend
-        total_entradas: cierreJSON.total_ventas,
-        total_salidas: cierreJSON.total_gastos
-      };
-    });
-    
-    // Devolver respuesta
     res.status(200).json({
-      cierres: cierresTransformados,
+      success: true,
+      cierres: cierresFormateados,
       meta: {
         total: count,
         pages: Math.ceil(count / limit),
-        currentPage: parseInt(page),
+        currentPage: page,
         totalEntradas,
         totalSalidas,
         totalSaldo
       }
     });
-    
   } catch (error) {
-    console.error('Error al obtener historial de cierres de caja:', error);
-    console.error('Detalles del error:', JSON.stringify({
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    }));
     res.status(500).json({ 
-      message: 'Error al obtener historial de cierres de caja', 
-      error: error.message 
+      success: false,
+      message: 'Error al obtener historial de cierres'
     });
   }
 };
 
-// Verificar si existe un cierre para el día actual
+// Verificar cierre diario
 exports.verificarCierreDiario = async (req, res) => {
   try {
     const hoy = new Date();
-    const fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    const fechaFin = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1);
+    const fechaInicio = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()));
+    const fechaFin = ajustarFechaBolivia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1));
     
     const cierreExistente = await CierreCaja.findOne({
       where: {
         fecha: {
-          [Op.gte]: fechaInicio,
-          [Op.lt]: fechaFin
+          [Op.between]: [fechaInicio, fechaFin]
         }
       }
     });
     
     res.json({
+      success: true,
       existeCierre: !!cierreExistente,
       cierre: cierreExistente ? {
         id: cierreExistente.id,
-        fecha: cierreExistente.fecha,
+        fecha: formatearFechaBolivia(cierreExistente.fecha),
         total_entradas: cierreExistente.total_ventas,
         total_salidas: cierreExistente.total_gastos,
         saldo_final: cierreExistente.saldo_final
       } : null
     });
   } catch (error) {
-    console.error('Error al verificar cierre diario:', error);
-    res.status(500).json({ message: 'Error al verificar cierre diario', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error al verificar cierre diario'
+    });
   }
 };

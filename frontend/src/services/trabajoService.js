@@ -6,19 +6,10 @@ import apiClient from "./api";
  */
 export async function getAllTrabajos() {
   try {
-    console.log('Iniciando solicitud para obtener todos los trabajos');
     const response = await apiClient.get("/trabajos");
-    console.log('Respuesta recibida:', response);
     return response;
   } catch (error) {
     console.error('Error en getAllTrabajos:', error);
-    if (error.response) {
-      console.error('Respuesta de error:', error.response.status, error.response.data);
-    } else if (error.request) {
-      console.error('No se recibió respuesta del servidor');
-    } else {
-      console.error('Error de configuración:', error.message);
-    }
     throw error;
   }
 }
@@ -39,8 +30,13 @@ export async function getTrabajoById(id) {
  * @returns {Promise} Promise con los datos del trabajo creado
  */
 export async function createTrabajo(trabajo) {
-  const response = await apiClient.post("/trabajos", trabajo);
-  return response.data;
+  try {
+    const response = await apiClient.post("/trabajos", trabajo);
+    return response;
+  } catch (error) {
+    console.error('Error en createTrabajo:', error);
+    throw error;
+  }
 }
 
 /**
@@ -51,19 +47,10 @@ export async function createTrabajo(trabajo) {
  */
 export async function updateTrabajo(id, trabajo) {
   try {
-    console.log('Enviando actualización de trabajo:', id, trabajo);
     const response = await apiClient.put(`/trabajos/${id}`, trabajo);
-    console.log('Respuesta de actualización recibida:', response);
     return response;
   } catch (error) {
     console.error('Error en updateTrabajo:', error);
-    if (error.response) {
-      console.error('Respuesta de error:', error.response.status, error.response.data);
-    } else if (error.request) {
-      console.error('No se recibió respuesta del servidor');
-    } else {
-      console.error('Error de configuración:', error.message);
-    }
     throw error;
   }
 }

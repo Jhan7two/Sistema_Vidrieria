@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => !!state.token && !!state.user,
     isAdmin: (state) => state.user?.rol === 'admin',
+    isOperario: (state) => state.user?.rol === 'operario',
     currentUser: (state) => state.user
   },
   
@@ -35,22 +36,9 @@ export const useAuthStore = defineStore('auth', {
         this.user = response.user
         this.sessionChecked = true
         
-        // Solo redireccionar después de que el usuario esté autenticado y su rol esté disponible
-        let redirectPath = ''
-        if (router.currentRoute.value.query.redirect) {
-          redirectPath = router.currentRoute.value.query.redirect
-        } else {
-          // Ahora sí, ya tenemos el usuario y su rol
-          if (this.user && this.user.rol === 'admin') {
-            redirectPath = '/dashboard'
-          } else if (this.user && this.user.rol === 'operador') {
-            redirectPath = '/cajaDiaria'
-          } else {
-            redirectPath = '/controlPanel'
-          }
-        }
-        router.push(redirectPath)
-        return response
+        // Retornar true para indicar login exitoso
+        // La redirección se manejará en el componente
+        return true
       } catch (error) {
         this.error = error.response?.data?.message || 'Error al iniciar sesión'
         throw error
@@ -75,8 +63,8 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
         this.sessionChecked = true
         
-        // Redireccionar al login
-        router.push('/auth/login')
+        // Redireccionar a home después del logout
+        router.push({ name: 'home' })
       }
     },
     
@@ -115,10 +103,8 @@ export const useAuthStore = defineStore('auth', {
           this.user = null
           this.sessionChecked = true
           
-          // Solo redirigir si no estamos ya en la página de login
-          if (router.currentRoute.value.path !== '/auth/login') {
-            router.push('/auth/login')
-          }
+          // Redirigir a home en caso de error de autenticación
+          router.push({ name: 'home' })
         }
         
         this.error = 'Error al cargar información del usuario'

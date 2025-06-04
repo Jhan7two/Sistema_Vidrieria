@@ -1,7 +1,5 @@
 <template>
-  <div class="caja-diaria p-6">
-    <h2 class="text-2xl font-bold mb-4">Caja Diaria</h2>
-    
+  <div class="caja-diaria p-6">    
     <!-- Mensaje de error -->
     <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
       <span class="block sm:inline">{{ error }}</span>
@@ -31,51 +29,109 @@
       <button :class="vista === 'cobros' ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-r" @click="vista = 'cobros'">Cobros de Trabajos</button>
     </div>
     <div v-if="vista === 'movimientos'" class="acciones">
-      <div class="form-ingreso">
-        <h3 class="text-lg font-semibold mb-2">Registrar Ingreso</h3>
-        <form @submit.prevent="registrarMovimiento('entrada')" class="bg-white p-4 rounded shadow">
-          <div class="mb-2">
-            <input v-model="nuevoIngreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model.number="nuevoIngreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model="nuevoIngreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
-            <select v-model="nuevoIngreso.forma_pago" class="border rounded px-3 py-2 w-full mb-2">
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full">Registrar Ingreso</button>
-        </form>
+      <div class="form-ingreso rounded-xl shadow-md bg-white/60 backdrop-blur-md">
+        <div class="rounded-t-xl px-6 py-3 mb-4 flex items-center gap-2"
+             style="background: linear-gradient(90deg, #22c55e 80%, #15803d 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4" /></svg>
+          <h3 class="text-lg font-semibold text-white">Registrar Ingreso</h3>
+        </div>
+        <div class="px-6 pb-6">
+          <form @submit.prevent="registrarMovimiento('entrada')" class="">
+            <div class="mb-2">
+              <input v-model="nuevoIngreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+              <input v-model.number="nuevoIngreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+              <input v-model="nuevoIngreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+              <select v-model="nuevoIngreso.forma_pago" class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <button type="submit" :disabled="cerrado" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full" :class="{'opacity-50 cursor-not-allowed': cerrado}">Registrar Ingreso</button>
+          </form>
+        </div>
       </div>
-      <div class="form-egreso">
-        <h3 class="text-lg font-semibold mb-2">Registrar Egreso</h3>
-        <form @submit.prevent="registrarMovimiento('salida')" class="bg-white p-4 rounded shadow">
-          <div class="mb-2">
-            <input v-model="nuevoEgreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model.number="nuevoEgreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" />
-            <input v-model="nuevoEgreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" />
-          </div>
-          <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full">Registrar Egreso</button>
-        </form>
+      <div class="form-egreso rounded-xl shadow-md bg-white/60 backdrop-blur-md">
+        <div class="rounded-t-xl px-6 py-3 mb-4 flex items-center gap-2"
+             style="background: linear-gradient(90deg, #ef4444 80%, #b91c1c 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 13H5v-2h14v2z" /></svg>
+          <h3 class="text-lg font-semibold text-white">Registrar Egreso</h3>
+        </div>
+        <div class="px-6 pb-6">
+          <form @submit.prevent="registrarMovimiento('salida')" class="">
+            <div class="mb-2">
+              <input v-model="nuevoEgreso.concepto" placeholder="Concepto" required class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+              <input v-model.number="nuevoEgreso.monto" type="number" min="0" step="0.01" placeholder="Monto" required class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+              <input v-model="nuevoEgreso.descripcion" placeholder="Descripción" class="border rounded px-3 py-2 w-full mb-2" :disabled="cerrado" />
+            </div>
+            <button type="submit" :disabled="cerrado" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full" :class="{'opacity-50 cursor-not-allowed': cerrado}">Registrar Egreso</button>
+          </form>
+        </div>
       </div>
     </div>
     
     <!-- Sección de Cobros de Trabajos -->
     <div v-if="vista === 'cobros'" class="cobros-trabajos mb-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold">Registrar Cobro de Trabajo</h3>
-        <button @click="buscarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Buscar Trabajos</button>
+        <div class="rounded-t-xl px-6 py-3 flex items-center gap-2 w-full"
+             style="background: linear-gradient(90deg, #2563eb 80%, #1e40af 100%);">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0V4m0 16v-4" /></svg>
+          <h3 class="text-lg font-semibold text-white flex-1">Registrar Cobro de Trabajo</h3>
+          <button @click="buscarTrabajos" :disabled="cerrado" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 ml-4" :class="{'opacity-50 cursor-not-allowed': cerrado}">
+            {{ mostrarBusquedaTrabajos ? 'Ver Trabajos Recientes' : 'Buscar Otros Trabajos' }}
+          </button>
+        </div>
       </div>
-      
-      <div v-if="mostrarBusquedaTrabajos" class="bg-white p-4 rounded shadow mb-4">
+
+      <!-- Lista de trabajos recientes -->
+      <div v-if="!mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
+        <h4 class="font-semibold mb-4">Trabajos Recientes Pendientes de Pago</h4>
+        <div v-if="trabajosRecientes.length > 0" class="overflow-x-auto">
+          <table class="min-w-full bg-white">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="px-4 py-2">ID</th>
+                <th class="px-4 py-2">Cliente</th>
+                <th class="px-4 py-2">Descripción</th>
+                <th class="px-4 py-2">Costo Total</th>
+                <th class="px-4 py-2">Pagado</th>
+                <th class="px-4 py-2">Pendiente</th>
+                <th class="px-4 py-2">Estado Pago</th>
+                <th class="px-4 py-2">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="trabajo in trabajosRecientes" :key="trabajo.id" class="border-b">
+                <td class="px-4 py-2">{{ trabajo.id }}</td>
+                <td class="px-4 py-2">{{ trabajo.cliente }}</td>
+                <td class="px-4 py-2">{{ trabajo.descripcion }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.costo_total) }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.monto_pagado) }}</td>
+                <td class="px-4 py-2">{{ formatCurrency(trabajo.saldo_pendiente) }}</td>
+                <td class="px-4 py-2">
+                  <span :class="estadoPagoClase(trabajo.estado_pago)">{{ trabajo.estado_pago }}</span>
+                </td>
+                <td class="px-4 py-2">
+                  <button @click="seleccionarTrabajo(trabajo)" :disabled="cerrado" class="bg-primary-600 text-white px-3 py-1 rounded hover:bg-primary-700" :class="{'opacity-50 cursor-not-allowed': cerrado}">Seleccionar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="text-center py-4 text-gray-500">
+          No hay trabajos recientes pendientes de pago.
+        </div>
+      </div>
+
+      <!-- Búsqueda de trabajos -->
+      <div v-if="mostrarBusquedaTrabajos" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1">Buscar por cliente o ID</label>
           <div class="flex gap-2">
-            <input v-model="busquedaTrabajo" placeholder="Nombre de cliente o ID" class="border rounded px-3 py-2 flex-grow" />
-            <button @click="filtrarTrabajos" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Buscar</button>
+            <input v-model="busquedaTrabajo" placeholder="Nombre de cliente o ID" class="border rounded px-3 py-2 flex-grow" :disabled="cerrado" />
+            <button @click="filtrarTrabajos" :disabled="cerrado" class="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700" :class="{'opacity-50 cursor-not-allowed': cerrado}">Buscar</button>
           </div>
         </div>
-        
         <div v-if="trabajosFiltrados.length > 0" class="overflow-x-auto">
           <table class="min-w-full bg-white">
             <thead>
@@ -112,8 +168,7 @@
           No se encontraron trabajos con esa búsqueda.
         </div>
       </div>
-      
-      <div v-if="trabajoSeleccionado" class="bg-white p-4 rounded shadow mb-4">
+      <div v-if="trabajoSeleccionado" class="bg-white/60 backdrop-blur-md p-6 rounded-xl shadow mb-4">
         <h4 class="font-semibold mb-2">Registrar cobro para trabajo #{{ trabajoSeleccionado.id }}</h4>
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -126,15 +181,14 @@
             <p><strong>Pendiente:</strong> {{ formatCurrency(trabajoSeleccionado.saldo_pendiente) }}</p>
           </div>
         </div>
-        
         <form @submit.prevent="registrarCobroTrabajo" class="border-t pt-4">
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Monto a cobrar</label>
-            <input v-model.number="nuevoCobro.monto" type="number" min="0" :max="trabajoSeleccionado.saldo_pendiente" step="0.01" required class="border rounded px-3 py-2 w-full" />
+            <input v-model.number="nuevoCobro.monto" type="number" min="0" :max="trabajoSeleccionado.saldo_pendiente" step="0.01" required class="border rounded px-3 py-2 w-full" :disabled="cerrado" />
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Tipo de pago</label>
-            <select v-model="nuevoCobro.metodo_pago" class="border rounded px-3 py-2 w-full">
+            <select v-model="nuevoCobro.metodo_pago" class="border rounded px-3 py-2 w-full" :disabled="cerrado">
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
               <option value="otro">Otro</option>
@@ -142,7 +196,7 @@
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Observaciones</label>
-            <textarea v-model="nuevoCobro.observaciones" class="border rounded px-3 py-2 w-full" rows="2"></textarea>
+            <textarea v-model="nuevoCobro.observaciones" class="border rounded px-3 py-2 w-full" rows="2" :disabled="cerrado"></textarea>
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" @click="cancelarSeleccionTrabajo" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">Cancelar</button>
@@ -158,7 +212,6 @@
         <table class="min-w-full">
           <thead>
             <tr class="bg-gray-100">
-              <th class="px-4 py-2 text-left">Hora</th>
               <th class="px-4 py-2 text-left">Tipo</th>
               <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Concepto' : 'Trabajo ID' }}</th>
               <th class="px-4 py-2 text-left">{{ vista === 'movimientos' ? 'Monto' : 'Cliente' }}</th>
@@ -168,8 +221,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="mov in vista === 'movimientos' ? movimientos : cobros" :key="mov.id" class="border-b">
-              <td class="px-4 py-2">{{ formatDate(mov.fecha_hora || mov.fecha) }}</td>
+            <tr v-for="mov in vista === 'movimientos' ? movimientosPaginados : cobrosPaginados" :key="mov.id" class="border-b">
               <td :class="[mov.tipo_movimiento === 'entrada' || mov.tipo_referencia === 'cobro' ? 'entrada' : 'salida', 'px-4 py-2']">
                 {{ mov.tipo_movimiento || mov.tipo_referencia }}
               </td>
@@ -179,11 +231,45 @@
               <td class="px-4 py-2">{{ vista === 'movimientos' ? mov.descripcion : (mov.metodo_pago || mov.tipo_pago) }}</td>
               <td v-if="vista === 'cobros'" class="px-4 py-2">{{ mov.observaciones || mov.observacion }}</td>
             </tr>
-            <tr v-if="(vista === 'movimientos' && movimientos.length === 0) || (vista === 'cobros' && cobros.length === 0)">
+            <tr v-if="(vista === 'movimientos' && movimientosPaginados.length === 0) || (vista === 'cobros' && cobrosPaginados.length === 0)">
               <td :colspan="vista === 'cobros' ? 6 : 5" class="text-center py-4 text-gray-500">No hay registros para mostrar.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Paginación -->
+      <div v-if="(vista === 'movimientos' && totalPaginasMovimientos > 1) || (vista === 'cobros' && totalPaginasCobros > 1)" class="mt-4 flex justify-between items-center">
+        <div class="text-sm text-gray-700">
+          Mostrando {{ (paginaActual - 1) * itemsPorPagina + 1 }} a {{ Math.min(paginaActual * itemsPorPagina, vista === 'movimientos' ? movimientos.length : cobros.length) }} de {{ vista === 'movimientos' ? movimientos.length : cobros.length }} registros
+        </div>
+        <div class="flex gap-2">
+          <button 
+            @click="paginaActual--" 
+            :disabled="paginaActual === 1"
+            class="px-3 py-1 rounded border"
+            :class="paginaActual === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            Anterior
+          </button>
+          <button 
+            v-for="pagina in paginasAMostrar" 
+            :key="pagina"
+            @click="paginaActual = pagina"
+            class="px-3 py-1 rounded border"
+            :class="pagina === paginaActual ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            {{ pagina }}
+          </button>
+          <button 
+            @click="paginaActual++" 
+            :disabled="paginaActual === (vista === 'movimientos' ? totalPaginasMovimientos : totalPaginasCobros)"
+            class="px-3 py-1 rounded border"
+            :class="paginaActual === (vista === 'movimientos' ? totalPaginasMovimientos : totalPaginasCobros) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
     </div>
     <div class="cierre-dia">
@@ -256,6 +342,9 @@
 import { getMovimientosDiarios, getSaldoActual, registrarMovimiento, cerrarCaja, getCobrosDiarios, registrarCobroTrabajo, verificarCierreDiario } from '../../services/cajaService';
 import { buscarTrabajosPorCobrar } from '../../services/cajaService';
 import { createCobro } from '../../services/cobroService';
+import { crearGasto } from '../../services/gastosService';
+import { formatTimeHHMM, formatDateDDMMHHMM } from '../../utils/dateUtils';
+
 export default {
   name: 'CajaDiaria',
   data() {
@@ -295,33 +384,157 @@ export default {
       mostrarModalCierre: false,
       observacionesCierre: '',
       mostrarResumenCierre: false,
-      resumenCierre: {}
+      resumenCierre: {},
+      paginaActual: 1,
+      itemsPorPagina: 10,
+      trabajosRecientes: [],
+    }
+  },
+  computed: {
+    totalPaginasMovimientos() {
+      return Math.ceil(this.movimientos.length / this.itemsPorPagina);
+    },
+    totalPaginasCobros() {
+      return Math.ceil(this.cobros.length / this.itemsPorPagina);
+    },
+    movimientosPaginados() {
+      const inicio = (this.paginaActual - 1) * this.itemsPorPagina;
+      const fin = inicio + this.itemsPorPagina;
+      return this.movimientos.slice(inicio, fin);
+    },
+    cobrosPaginados() {
+      const inicio = (this.paginaActual - 1) * this.itemsPorPagina;
+      const fin = inicio + this.itemsPorPagina;
+      return this.cobros.slice(inicio, fin);
+    },
+    paginasAMostrar() {
+      const total = this.vista === 'movimientos' ? this.totalPaginasMovimientos : this.totalPaginasCobros;
+      const actual = this.paginaActual;
+      const paginas = [];
+      
+      // Siempre mostrar primera página
+      paginas.push(1);
+      
+      // Calcular páginas alrededor de la actual
+      for (let i = Math.max(2, actual - 1); i <= Math.min(total - 1, actual + 1); i++) {
+        paginas.push(i);
+      }
+      
+      // Siempre mostrar última página si hay más de una
+      if (total > 1) {
+        paginas.push(total);
+      }
+      
+      // Eliminar duplicados y ordenar
+      return [...new Set(paginas)].sort((a, b) => a - b);
+    }
+  },
+  watch: {
+    vista() {
+      // Resetear a la primera página cuando cambia la vista
+      this.paginaActual = 1;
+    },
+    movimientos() {
+      // Resetear a la primera página cuando cambian los movimientos
+      if (this.vista === 'movimientos') {
+        this.paginaActual = 1;
+      }
+    },
+    cobros() {
+      // Resetear a la primera página cuando cambian los cobros
+      if (this.vista === 'cobros') {
+        this.paginaActual = 1;
+      }
     }
   },
   mounted() {
     // Cargar datos iniciales
     this.cargarDatos();
-    // Verificar si ya existe un cierre para el día actual
-    this.verificarCierreDiario();
   },
   methods: {
     async cargarDatos() {
       try {
         this.cargando = true;
+        this.error = null;
+        this.mensaje = null;
+        
+        // Primero verificar en localStorage
+        const ultimoCierre = localStorage.getItem('ultimoCierreCaja');
+        if (ultimoCierre) {
+          const cierreData = JSON.parse(ultimoCierre);
+          const fechaCierre = new Date(cierreData.fecha);
+          const hoy = new Date();
+          
+          // Verificar si el cierre es de hoy
+          if (fechaCierre.toDateString() === hoy.toDateString()) {
+            this.cerrado = true;
+            this.saldo = 0;
+            this.movimientos = [];
+            this.cobros = [];
+            this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${cierreData.id}`;
+            return;
+          }
+        }
+        
+        // Si no hay cierre en localStorage o no es de hoy, verificar en el servidor
+        const verificacion = await verificarCierreDiario();
+        
+        // Si hay un cierre existente, verificar si es de hoy
+        if (verificacion.existeCierre) {
+          const fechaCierre = new Date(verificacion.cierre.fecha);
+          const hoy = new Date();
+          
+          // Si el cierre es de hoy, mantener el estado cerrado
+          if (fechaCierre.toDateString() === hoy.toDateString()) {
+            this.cerrado = true;
+            this.saldo = 0;
+            this.movimientos = [];
+            this.cobros = [];
+            this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${verificacion.cierre.id}`;
+            
+            // Actualizar localStorage con los datos del servidor
+            localStorage.setItem('ultimoCierreCaja', JSON.stringify({
+              fecha: verificacion.cierre.fecha,
+              id: verificacion.cierre.id,
+              total_entradas: verificacion.cierre.total_entradas,
+              total_salidas: verificacion.cierre.total_salidas,
+              saldo_final: verificacion.cierre.saldo_final
+            }));
+            return;
+          }
+        }
+        
+        // Si no hay cierre o no es de hoy, cargar datos normales
+        this.cerrado = false;
+        
         // Cargar saldo actual
         const dataSaldo = await getSaldoActual();
-        this.saldo = dataSaldo.saldo;
+        this.saldo = parseFloat(dataSaldo.saldo) || 0;
         
         // Cargar movimientos diarios
         const dataMovimientos = await getMovimientosDiarios();
-        this.movimientos = dataMovimientos.movimientos || [];
+        if (dataMovimientos && Array.isArray(dataMovimientos.movimientos)) {
+          this.movimientos = dataMovimientos.movimientos.sort((a, b) => {
+            const fechaA = new Date(a.fecha_hora || a.fecha);
+            const fechaB = new Date(b.fecha_hora || b.fecha);
+            return fechaB - fechaA;
+          });
+        } else {
+          this.movimientos = [];
+        }
         
         // Cargar cobros diarios
         const dataCobros = await getCobrosDiarios();
         this.cobros = dataCobros.cobros || [];
         
-        // Verificar si ya existe un cierre para el día actual
-        await this.verificarCierreDiario();
+        // Cargar trabajos recientes pendientes de pago
+        const response = await buscarTrabajosPorCobrar("");
+        if (response && response.trabajos) {
+          this.trabajosRecientes = response.trabajos
+            .filter(t => t.estado_pago !== 'Pagado')
+            .slice(0, 5);
+        }
+        
       } catch (error) {
         console.error("Error al cargar datos:", error);
         this.error = "Error al cargar datos. Intente nuevamente.";
@@ -334,22 +547,43 @@ export default {
         this.cargando = true;
         const movimiento = tipo === 'entrada' ? this.nuevoIngreso : this.nuevoEgreso;
         
-        // Preparar datos para enviar al backend
-        const datos = {
-          tipo_movimiento: tipo,
-          concepto: movimiento.concepto,
-          monto: movimiento.monto,
-          descripcion: movimiento.descripcion,
-          forma_pago: movimiento.forma_pago
-        };
-        
-        // Llamar al servicio
-        const response = await registrarMovimiento(datos);
-        
-        // Actualizar la vista
-        if (response && response.movimiento) {
-          this.movimientos.unshift(response.movimiento);
-          this.saldo = response.saldo;
+        if (tipo === 'entrada') {
+          // Preparar datos para ingreso
+          const datos = {
+            tipo_movimiento: tipo,
+            concepto: movimiento.concepto,
+            monto: movimiento.monto,
+            descripcion: movimiento.descripcion,
+            forma_pago: movimiento.forma_pago
+          };
+          
+          // Llamar al servicio de caja para ingresos
+          const response = await registrarMovimiento(datos);
+          
+          if (response && response.movimiento) {
+            this.movimientos.unshift(response.movimiento);
+            this.saldo = parseFloat(response.movimiento.saldo_resultante) || 0;
+            this.mostrarMensajeExito("Ingreso registrado exitosamente");
+          }
+        } else {
+          // Preparar datos para gasto
+          const datosGasto = {
+            fecha: new Date().toISOString().split('T')[0],
+            monto: movimiento.monto,
+            descripcion: movimiento.descripcion,
+            categoria: movimiento.concepto,
+            forma_pago: movimiento.forma_pago
+          };
+          
+          // Llamar al servicio de gastos para egresos
+          const response = await crearGasto(datosGasto);
+          
+          if (response && response.data && response.data.movimiento) {
+            // Actualizar la vista con el movimiento de caja
+            this.movimientos.unshift(response.data.movimiento);
+            this.saldo = parseFloat(response.data.movimiento.saldo_resultante) || 0;
+            this.mostrarMensajeExito("Gasto registrado exitosamente");
+          }
         }
         
         // Limpiar formulario
@@ -358,6 +592,7 @@ export default {
         } else {
           this.nuevoEgreso = { concepto: '', monto: null, descripcion: '', forma_pago: 'efectivo' };
         }
+        
       } catch (error) {
         console.error("Error al registrar movimiento:", error);
         this.error = error.response?.data?.message || "Error al registrar movimiento.";
@@ -370,14 +605,29 @@ export default {
     },
     formatCurrency(value) {
       if (typeof value !== 'number') {
-        return value || '-';
+        value = parseFloat(value);
+        if (isNaN(value)) return '-';
       }
       return '$' + value.toFixed(2);
     },
     formatDate(date) {
       if (!date) return '-';
-      const d = new Date(date);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      try {
+        // Si la fecha es un string en formato "DD/MM/YYYY, HH:mm:ss"
+        if (typeof date === 'string' && date.includes('/')) {
+          const [datePart, timePart] = date.split(', ');
+          const [day, month, year] = datePart.split('/');
+          const [hours, minutes] = timePart.split(':');
+          const dateObj = new Date(year, month - 1, day, hours, minutes);
+          return formatTimeHHMM(dateObj);
+        }
+        
+        // Para otros formatos, usar la utilidad directamente
+        return formatTimeHHMM(date);
+      } catch (error) {
+        console.error('Error al formatear fecha:', error, 'Fecha recibida:', date);
+        return '-';
+      }
     },
     // Métodos para la sección de cobros de trabajos
     buscarTrabajos() {
@@ -501,19 +751,14 @@ export default {
           trabajo_id: this.trabajoSeleccionado.id,
           monto: monto,
           tipo_pago: this.nuevoCobro.metodo_pago || 'efectivo',
-          observacion: this.nuevoCobro.observaciones // Usar "observacion" para que coincida con el backend
+          observacion: this.nuevoCobro.observaciones
         };
-        
-        console.log("Enviando datos para registrar cobro:", datos);
         
         // Llamar al servicio
         const response = await createCobro(datos);
         
-        console.log("Cobro registrado exitosamente:", response);
-        
-        // Actualizar la vista
         if (response) {
-          // Recargar datos
+          // Actualizar datos inmediatamente
           await this.cargarDatos();
           
           // Cerrar el formulario
@@ -608,13 +853,39 @@ export default {
         // Llamar al servicio
         const response = await cerrarCaja(datos);
         
-        // Mostrar resumen del cierre
-        this.resumenCierre = response;
-        this.mostrarResumenCierre = true;
-        
-        // Actualizar estado
-        this.cerrado = true;
-        this.mensaje = "Caja cerrada correctamente";
+        if (response.success) {
+          // Mostrar resumen del cierre
+          this.resumenCierre = response;
+          this.mostrarResumenCierre = true;
+          
+          // Actualizar estado
+          this.cerrado = true;
+          this.mensaje = "Caja cerrada correctamente";
+          
+          // Guardar datos del cierre en localStorage
+          localStorage.setItem('ultimoCierreCaja', JSON.stringify({
+            fecha: new Date().toISOString(),
+            id: response.cierre.id,
+            total_entradas: response.total_entradas,
+            total_salidas: response.total_salidas,
+            saldo_final: response.saldo_final
+          }));
+          
+          // Limpiar datos
+          this.saldo = 0;
+          this.movimientos = [];
+          this.cobros = [];
+          
+          // Recargar datos después de un breve delay
+          setTimeout(async () => {
+            await Promise.all([
+              this.cargarDatos(),
+              this.verificarCierreDiario()
+            ]);
+          }, 1000);
+        } else {
+          throw new Error(response.message || 'Error al cerrar la caja');
+        }
       } catch (error) {
         console.error("Error al cerrar día:", error);
         
@@ -636,30 +907,76 @@ export default {
     
     formatFechaCompleta(fecha) {
       if (!fecha) return '-';
-      const d = new Date(fecha);
-      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      try {
+        return formatDateDDMMHHMM(fecha);
+      } catch (error) {
+        console.error('Error al formatear fecha completa:', error);
+        return '-';
+      }
     },
     calcularTotalEntradas() {
       return this.movimientos
         .filter(mov => mov.tipo_movimiento === 'entrada')
-        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+        .reduce((total, mov) => {
+          const monto = typeof mov.monto === 'string' ? parseFloat(mov.monto) : mov.monto;
+          return total + (isNaN(monto) ? 0 : monto);
+        }, 0);
     },
     calcularTotalSalidas() {
       return this.movimientos
         .filter(mov => mov.tipo_movimiento === 'salida')
-        .reduce((total, mov) => total + parseFloat(mov.monto || 0), 0);
+        .reduce((total, mov) => {
+          const monto = typeof mov.monto === 'string' ? parseFloat(mov.monto) : mov.monto;
+          return total + (isNaN(monto) ? 0 : monto);
+        }, 0);
     },
     async verificarCierreDiario() {
       try {
+        // Primero verificar en localStorage
+        const ultimoCierre = localStorage.getItem('ultimoCierreCaja');
+        if (ultimoCierre) {
+          const cierreData = JSON.parse(ultimoCierre);
+          const fechaCierre = new Date(cierreData.fecha);
+          const hoy = new Date();
+          
+          // Verificar si el cierre es de hoy
+          if (fechaCierre.toDateString() === hoy.toDateString()) {
+            this.cerrado = true;
+            this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${cierreData.id}`;
+            return {
+              existeCierre: true,
+              cierre: cierreData
+            };
+          }
+        }
+        
+        // Si no hay cierre en localStorage o no es de hoy, verificar en el servidor
         const response = await verificarCierreDiario();
-        this.cerrado = response.existeCierre;
+        const fechaCierre = response.cierre ? new Date(response.cierre.fecha) : null;
+        const hoy = new Date();
+        
+        // Solo considerar cerrado si el cierre es de hoy
+        this.cerrado = response.existeCierre && fechaCierre && 
+                      fechaCierre.toDateString() === hoy.toDateString();
         
         if (this.cerrado) {
-          const cierre = response.cierre;
-          this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${cierre.id}`;
+          this.mensaje = `La caja ya fue cerrada hoy. ID de cierre: ${response.cierre.id}`;
+          
+          // Actualizar localStorage con los datos del servidor
+          localStorage.setItem('ultimoCierreCaja', JSON.stringify({
+            fecha: response.cierre.fecha,
+            id: response.cierre.id,
+            total_entradas: response.cierre.total_entradas,
+            total_salidas: response.cierre.total_salidas,
+            saldo_final: response.cierre.saldo_final
+          }));
         }
+        
+        return response;
       } catch (error) {
         console.error("Error al verificar cierre diario:", error);
+        this.error = "Error al verificar el estado de la caja";
+        return { existeCierre: false };
       }
     }
   }
