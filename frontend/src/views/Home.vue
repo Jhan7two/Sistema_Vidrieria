@@ -7,7 +7,7 @@
           <h1 class="text-4xl md:text-5xl font-bold mb-6">Sistema Vidriería Montero</h1>
           <p class="text-xl mb-8">Administre su inventario, clientes y ventas de manera eficiente</p>
           <div class="flex flex-col sm:flex-row justify-center gap-4">
-            <router-link to="/auth/login" class="bg-white text-blue-700 hover:bg-rose-100 font-semibold py-3 px-6 rounded-lg transition duration-300">
+            <router-link to="/auth/login-user" class="bg-white text-blue-700 hover:bg-rose-100 font-semibold py-3 px-6 rounded-lg transition duration-300">
               Iniciar Sesión
             </router-link>
             <router-link to="/control-panel" class="bg-transparent hover:bg-blue-700 border border-white font-semibold py-3 px-6 rounded-lg transition duration-300">
