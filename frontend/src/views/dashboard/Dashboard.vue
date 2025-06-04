@@ -110,7 +110,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import IndividualCard from '../../components/IndividualCard.vue'
+import IndividualCard from '../../components/individualCard.vue'
 // import DataTable from '../../components/DataTable.vue'
 import { getVentasDelMes, getGastosDelMes, getTrabajosPorEstado } from "@/services/dashboardService"  // Importar funciones
 
