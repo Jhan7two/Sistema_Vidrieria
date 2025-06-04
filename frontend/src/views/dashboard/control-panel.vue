@@ -117,10 +117,10 @@
   <script setup>
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore } from '../../store/auth'
-  import ReportesCaja from '../../components/ReportesCaja.vue'
-  import GestionUsuarios from '../../components/GestionUsuarios.vue'
-  import GestionClientes from '../../components/GestionClientes.vue'
-  import GestionVentasGastos from '../../components/GestionVentasGastos.vue'
+  import ReportesCaja from '../../components/reportes-caja.vue'
+  import GestionUsuarios from '../../components/gestion-usuarios.vue'
+  import GestionClientes from '../../components/gestion-clientes.vue'
+  import GestionVentasGastos from '../../components/gestion-ventas-gastos.vue'
   
   // Estado local
   const profileMenuOpen = ref(false)

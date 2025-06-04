@@ -208,7 +208,7 @@ import {
   Square,
   LayoutTemplate
 } from 'lucide-vue-next';
-import ExcalidrawWrapper from './ExcalidrawWrapper.vue';
+import ExcalidrawWrapper from './excalidraw-wrapper.vue';
 
 interface Design {
   id: string;

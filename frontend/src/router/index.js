@@ -3,20 +3,20 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 
 // Layouts
-import AuthLayout from '../layouts/AuthLayout.vue'
-import MainLayout from '../layouts/mainLayout.vue'
+import AuthLayout from '../layouts/auth-layout.vue'
+import MainLayout from '../layouts/main-layout.vue'
 
 // Vistas
-import Login from '../views/auth/Login.vue'
-import Home from '../views/Home.vue'
-import NotFound from '../views/NotFound.vue'
-import Dashboard from '../views/dashboard/Dashboard.vue'
+import Login from '../views/auth/login.vue'
+import Home from '../views/home.vue'
+import NotFound from '../views/not-found.vue'
+import Dashboard from '../views/dashboard/dashboard.vue'
 import cajaDiaria from '../views/operador/caja-diaria.vue'
 import Trabajos from '../views/operador/trabajos.vue'
-import controlPanel from '../views/dashboard/controlPanel.vue'
+import controlPanel from '../views/dashboard/control-panel.vue'
 import Cotizaciones from '../views/operador/cotizaciones.vue'
 import Cotizacion from '../views/operador/cotizacion.vue'
-import ComprobanteView from '../views/ComprobanteView.vue'
+import ComprobanteView from '../views/comprobante.vue'
 
 // Rutas
 const routes = [
@@ -38,8 +38,8 @@ const routes = [
     ]
   },
   {
-    path: '/controlPanel',
-    name: 'controlPanel',
+    path: '/control-panel',
+    name: 'control-panel',
     component: controlPanel,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
@@ -83,7 +83,7 @@ const routes = [
   {
     path: '/comprobante',
     name: 'comprobante',
-    component: () => import('../views/ComprobanteView.vue'),
+    component: () => import('../views/comprobante.vue'),
     meta: { requiresAuth: false }
   },
   {

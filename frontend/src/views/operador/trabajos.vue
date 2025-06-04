@@ -200,9 +200,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import CalendarioTrabajos from '@/components/CalendarioTrabajos.vue'
-import DetallesTrabajo from '@/components/DetallesTrabajo.vue'
-import EditarTrabajo from '@/components/EditarTrabajo.vue'
+import CalendarioTrabajos from '@/components/calendario-trabajos.vue'
+import DetallesTrabajo from '@/components/detalles-trabajo.vue'
+import EditarTrabajo from '@/components/editar-trabajo.vue'
 import { getAllTrabajos, updateTrabajo } from '@/services/trabajoService'
 
 const vista = ref('tabla')
